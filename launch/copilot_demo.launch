@@ -4,7 +4,8 @@
         <remap from="image_raw" to="/misty/id_0/camera/color/image_raw" />
     </node>
     <!-- <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch"></include> -->
-
+    <!-- <include file="$(find gaze_tracking_ros)/launch/example.launch"/> -->
     <!-- <node name="code_listener" pkg="robo-copilot" type="code_listener.py" output="screen"/> -->
-    <node name="social_behaviors" pkg="robo-copilot" type="social_behaviors.py" output="screen"/>
+    <!-- <node name="social_behaviors" pkg="robo-copilot" type="social_behaviors.py" output="screen"/> -->
+    <node name="gaze_follower" pkg="robo-copilot" type="gaze_follower.py" output="screen"/>
 </launch>
