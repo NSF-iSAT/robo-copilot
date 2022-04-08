@@ -165,7 +165,8 @@ catkin_install_python(PROGRAMS
   # scripts/misty_AV.py
   # scripts/misty_find_ip_ros.py
   # scripts/demo.py
-  code_listener.py
+  scripts/code_listener.py
+  scripts/social_behaviors.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
