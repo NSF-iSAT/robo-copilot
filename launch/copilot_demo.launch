@@ -8,4 +8,8 @@
     <!-- <node name="code_listener" pkg="robo-copilot" type="code_listener.py" output="screen"/> -->
     <!-- <node name="social_behaviors" pkg="robo-copilot" type="social_behaviors.py" output="screen"/> -->
     <node name="gaze_follower" pkg="robo-copilot" type="gaze_follower.py" output="screen"/>
+    <!-- <include file="$(find ros_speech2text)/launch/ros_speech2text.launch">
+        <arg name="audio_device_idx" value="7"/>
+    </include> -->
+
 </launch>
