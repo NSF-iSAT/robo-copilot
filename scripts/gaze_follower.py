@@ -1,3 +1,4 @@
+import random
 import rospy
 from misty_wrapper.msg import MoveHead
 from gaze_tracking_ros import GazeState
@@ -16,7 +17,11 @@ BEAR_RANGE = 13 # -13 right and +13 left
 ELEVATION_RANGE = 13 # -13 up and +13 down
 
 class GazeFollower:
-    def __init__(self, img_w, img_h):
+    GAZE_RIGHT = 0
+    GAZE_LEFT = 1
+    GAZE_CENTER = 2
+
+    def __init__(self, misty_id, img_w, img_h):
         self.img_dims = (img_w, img_h)
         gaze_sub = rospy.Subscriber("/gaze_tracking/gaze_state", GazeState, self.gaze_callback)
         self.head_pub = rospy.Publisher("/misty/id_0/head", MoveHead, queue_size=1)
@@ -27,16 +32,89 @@ class GazeFollower:
 
         rospy.init_node("gaze_follower", anonymous=True)
         # reset head position
-        self.head_pub.publish(MoveHead(self.head_roll, self.head_pitch, self.head_yaw))
+        rospy.sleep(5)
+        self.reset()
+        
+        self.timeout = rospy.Duration(1.5)
+        self.reset_timeout = rospy.Duration(10)
+        self.idle_timeout = rospy.Duration(5)
+        self.joint_attn_timeout = rospy.Duration(5)
 
-        rospy.spin()
+        self.movement_start = rospy.Time.now()
+        self.gaze_last_seen = rospy.Time.now()
+        self.gaze_last_changed = rospy.Time.now()
+        self.gaze_dir = self.GAZE_CENTER
+
+        while not rospy.is_shutdown():
+            # print("looping: ", (rospy.Time.now() - self.movement_start).to_sec())
+            if rospy.Time.now() - self.gaze_last_seen > self.reset_timeout and rospy.Time.now() - self.movement_start > self.timeout:
+                self.look_for_face()
+
+            # elif rospy.Time.now() - self.gaze_last_changed > self.joint_attn_timeout:
+            #     self.follow_gaze()
+
+            elif rospy.Time.now() - self.movement_start > self.idle_timeout:
+                self.do_idle_motion()
+
+            rospy.sleep(self.timeout)
+
+    def look_for_face(self):
+        yaw = self.head_yaw
+        if abs(yaw + 30 * self.look_dir) > 75:
+            self.look_dir *= -1
+
+        yaw = yaw + (30 * self.look_dir)
+
+        self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=0, yaw=yaw, velocity = 95, units="degrees"))
+        self.head_yaw = yaw
+        self.head_pitch = 0
+
+    def do_idle_motion(self):
+        id = random.randint(0, 3)
+        if id == 0:
+            self.head_pub.publish(MoveHead(roll=20, pitch=self.head_pitch, yaw=self.head_yaw, velocity=100, units="degrees"))
+            rospy.sleep(self.timeout)
+            self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=self.head_pitch, yaw=self.head_yaw, velocity=100))
+
+        elif id == 1:
+            self.face_pub.publish(String("e_Joy.jpg"))
+            rospy.sleep(self.timeout)
+            self.face_pub.publish(String("e_DefaultContent.jpg"))
+
+        elif id == 2:
+            self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=-10, yaw=self.head_yaw, velocity=90))
+            rospy.sleep(self.timeout)
+            self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=self.head_pitch, yaw=self.head_yaw, velocity=90))
+            self.movement_start = rospy.Time.now()
+
+        self.movement_start = rospy.Time.now()
+
+    def reset(self):
+        self.head_pub.publish(MoveHead(roll=0, pitch=0, yaw=0,
+            velocity=100, units="degrees"))
+        self.head_yaw = 0
+        self.head_pitch = 0
+        self.head_roll = 0
+        self.movement_start = rospy.Time.now()
 
     def gaze_callback(self, msg):
-        avg_pupil_x = (msg.pupil_left_coords.x + msg.pupil_right_coords.x) / 2
-        avg_pupil_y = (msg.pupil_left_coords.y + msg.pupil_right_coords.y) / 2
-        
-        avg_pupil_x = avg_pupil_x / self.img_dims[0] - 0.5
-        avg_pupil_y = avg_pupil_y / self.img_dims[1] - 0.5
+        self.gaze_last_seen = rospy.Time.now()
+        if rospy.Time.now() - self.movement_start > self.timeout:
+            avg_pupil_x = (msg.pupil_left_coords.x + msg.pupil_right_coords.x) / 2.0
+            avg_pupil_y = (msg.pupil_left_coords.y + msg.pupil_right_coords.y) / 2.0
+
+            avg_pupil_x = avg_pupil_x / self.img_dims[0] - 0.5
+            avg_pupil_y = avg_pupil_y / self.img_dims[1] - 0.5
+
+            # calculate head movement
+            if (abs(avg_pupil_x) + abs(avg_pupil_y)) > DELTA_MIN:
+                self.head_yaw -= (WIDTH_RANGE / 2 * avg_pupil_x)
+                self.head_pitch += (HEIGHT_RANGE / 2 * avg_pupil_y)
+
+                if self.head_yaw < YAW_RIGHT:
+                    self.head_yaw = YAW_RIGHT
+                elif self.head_yaw > YAW_LEFT:
+                    self.head_yaw = YAW_LEFT
 
         # calculate head movement
         pitch = self.head_pitch
