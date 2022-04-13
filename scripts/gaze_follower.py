@@ -1,56 +1,90 @@
-import time
+import random
 import rospy
 from misty_wrapper.msg import MoveHead
 from gaze_tracking_ros.msg import GazeState
+from std_msgs.msg import String
 
 # idk about some of these parameters, I just based it on https://github.com/MistySampleSkills/Misty-Concierge-Template/blob/master/JavaScript/conciergeBaseTemplate/conciergeBaseTemplate.js
 
 # movement limits, in degrees
-PITCH_UP = -40
-PITCH_DOWN = 26
-YAW_LEFT = 81
-YAW_RIGHT = -81
+PITCH_UP = -38
+PITCH_DOWN = 23
+YAW_LEFT = 80
+YAW_RIGHT = -80
 ROLL_LEFT = -40
 ROLL_RIGHT = 40
 
-BEAR_RANGE = 13 # -13 right and +13 left
-ELEVATION_RANGE = 13 # -13 up and +13 down
+# BEAR_RANGE = 6 # -13 right and +13 left
+# ELEVATION_RANGE = 12 # -13 up and +13 down
+WIDTH_RANGE = 120
+HEIGHT_RANGE = 120
 
-DELTA_MIN = 0.05
+DELTA_MIN = 0.1
 
 class GazeFollower:
     def __init__(self, misty_id, img_w, img_h):
         self.img_dims = (img_w, img_h)
         gaze_sub = rospy.Subscriber("/gaze_state", GazeState, self.gaze_callback)
         self.head_pub = rospy.Publisher("/misty/id_0/head", MoveHead, queue_size=1)
+        self.face_pub = rospy.Publisher("/misty/id_0/face_img", String, queue_size=1)
 
         self.head_roll  = 0
         self.head_pitch = 0
         self.head_yaw   = 0
 
+        self.do_idle = True
+
         rospy.init_node("gaze_follower", anonymous=True)
         # reset head position
         rospy.sleep(5)
-        self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=self.head_pitch, yaw=self.head_yaw,
-            velocity=100, units="degrees"))
+        self.reset()
         
         self.timeout = rospy.Duration(1.5)
         self.reset_timeout = rospy.Duration(10)
+        self.idle_timeout = rospy.Duration(5)
+
         self.movement_start = rospy.Time.now()
+        self.gaze_last_seen = rospy.Time.now()
 
         while not rospy.is_shutdown():
-            if rospy.Time.now() - self.movement_start > self.reset_timeout:
-                self.head_pub.publish(MoveHead(roll=0, pitch=0, yaw=0,
-                    velocity=100, units="degrees"))
-                self.movement_start = rospy.Time.now()
+            print("looping: ", (rospy.Time.now() - self.movement_start).to_sec())
+            if rospy.Time.now() - self.gaze_last_seen > self.reset_timeout and rospy.Time.now() - self.movement_start > self.timeout:
+                self.reset()
+
+            elif rospy.Time.now() - self.movement_start > self.idle_timeout:
+                self.do_idle_motion()
+
+            rospy.sleep(1)
+
+    def do_idle_motion(self):
+        id = random.randint(0, 2)
+        if id == 0:
+            self.head_pub.publish(MoveHead(roll=20, pitch=self.head_pitch, yaw=self.head_yaw, velocity=100, units="degrees"))
+            rospy.sleep(self.timeout)
+            self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=self.head_pitch, yaw=self.head_yaw, velocity=100))
+
+        elif id == 1:
+            self.face_pub.publish(String("e_Joy.jpg"))
+            rospy.sleep(self.timeout)
+            self.face_pub.publish(String("e_DefaultContent.jpg"))
+
+        self.movement_start = rospy.Time.now()
+
+    def reset(self):
+        self.head_pub.publish(MoveHead(roll=0, pitch=0, yaw=0,
+            velocity=100, units="degrees"))
+        self.head_yaw = 0
+        self.head_pitch = 0
+        self.head_roll = 0
+        self.movement_start = rospy.Time.now()
 
     def gaze_callback(self, msg):
-
+        self.gaze_last_seen = rospy.Time.now()
         if rospy.Time.now() - self.movement_start > self.timeout:
             avg_pupil_x = (msg.pupil_left_coords.x + msg.pupil_right_coords.x) / 2.0
             avg_pupil_y = (msg.pupil_left_coords.y + msg.pupil_right_coords.y) / 2.0
             
-            print(msg)
+            # print(msg)
 
             avg_pupil_x = avg_pupil_x / self.img_dims[0] - 0.5
             avg_pupil_y = avg_pupil_y / self.img_dims[1] - 0.5
@@ -60,10 +94,12 @@ class GazeFollower:
             yaw = self.head_yaw
 
             if (abs(avg_pupil_x) + abs(avg_pupil_y)) > DELTA_MIN:
-                self.head_yaw -= ((YAW_LEFT - YAW_RIGHT)/33 * (avg_pupil_x*13))
-                self.head_pitch += ((PITCH_DOWN - PITCH_UP)/33 * (avg_pupil_y*13))
-                # self.head_pub.publish(MoveHead(roll = self.head_roll, pitch = self.head_pitch + ((PITCH_DOWN - PITCH_UP)/33 * (avg_pupil_y*13)), velocity=10.0,
-                    # yaw = self.head_yaw - ((YAW_LEFT - YAW_RIGHT)/33 * (avg_pupil_x*13)), duration=1, units="degrees"))
+                # self.head_yaw -= ((YAW_LEFT - YAW_RIGHT)/33 * (avg_pupil_x*BEAR_RANGE))
+                # self.head_pitch += ((PITCH_DOWN - PITCH_UP)/33 * (avg_pupil_y*ELEVATION_RANGE))
+                # # self.head_pub.publish(MoveHead(roll = self.head_roll, pitch = self.head_pitch + ((PITCH_DOWN - PITCH_UP)/33 * (avg_pupil_y*13)), velocity=10.0,
+                #     # yaw = self.head_yaw - ((YAW_LEFT - YAW_RIGHT)/33 * (avg_pupil_x*13)), duration=1, units="degrees"))
+                self.head_yaw -= (WIDTH_RANGE / 2 * avg_pupil_x)
+                self.head_pitch += (HEIGHT_RANGE / 2 * avg_pupil_y)
 
                 if self.head_yaw < YAW_RIGHT:
                     self.head_yaw = YAW_RIGHT
@@ -75,9 +111,9 @@ class GazeFollower:
                 elif self.head_pitch < PITCH_UP:
                     self.head_pitch = PITCH_UP
 
-                self.movement_start = rospy.Time.now()
                 self.head_pub.publish(MoveHead(roll = self.head_roll, pitch = self.head_pitch, yaw = self.head_yaw,
                     velocity=100, units="degrees"))
+                self.movement_start = rospy.Time.now()
             
 if __name__ == "__main__":
     GazeFollower(0, 480, 640)
