@@ -27,44 +27,71 @@ class GazeFollower:
     GAZE_CENTER = 2
 
     def __init__(self, misty_id, img_w, img_h):
+        rospy.init_node("gaze_follower", anonymous=True)
+
         self.img_dims = (img_w, img_h)
-        gaze_sub = rospy.Subscriber("/gaze_state", GazeState, self.gaze_callback)
-        self.head_pub = rospy.Publisher("/misty/id_0/head", MoveHead, queue_size=1)
-        self.face_pub = rospy.Publisher("/misty/id_0/face_img", String, queue_size=1)
 
         self.head_roll  = 0
         self.head_pitch = 0
         self.head_yaw   = 0
 
         self.do_idle = True
-
-        rospy.init_node("gaze_follower", anonymous=True)
-        # reset head position
-        rospy.sleep(5)
-        self.reset()
-        
         self.timeout = rospy.Duration(1.5)
         self.reset_timeout = rospy.Duration(10)
         self.idle_timeout = rospy.Duration(5)
         self.joint_attn_timeout = rospy.Duration(5)
+        self.joint_attn_offset = 20 # degrees, yaw
 
-        self.movement_start = rospy.Time.now()
         self.gaze_last_seen = rospy.Time.now()
         self.gaze_last_changed = rospy.Time.now()
         self.gaze_dir = self.GAZE_CENTER
+        self.gaze_follow_dir = self.GAZE_CENTER
+        self.movement_start = rospy.Time.now()
+
+        gaze_sub = rospy.Subscriber("/gaze_state", GazeState, self.gaze_callback)
+        self.head_pub = rospy.Publisher("/misty/id_0/head", MoveHead, queue_size=1)
+        self.face_pub = rospy.Publisher("/misty/id_0/face_img", String, queue_size=1)
+
+        # reset head position
+        rospy.sleep(5)
+        self.reset()
 
         while not rospy.is_shutdown():
             # print("looping: ", (rospy.Time.now() - self.movement_start).to_sec())
             if rospy.Time.now() - self.gaze_last_seen > self.reset_timeout and rospy.Time.now() - self.movement_start > self.timeout:
                 self.look_for_face()
 
-            # elif rospy.Time.now() - self.gaze_last_changed > self.joint_attn_timeout:
-            #     self.follow_gaze()
+            elif rospy.Time.now() - self.gaze_last_changed > self.joint_attn_timeout and self.gaze_dir != self.gaze_follow_dir:
+                self.follow_gaze()
 
-            elif rospy.Time.now() - self.movement_start > self.idle_timeout:
+            elif rospy.Time.now() - self.movement_start > self.idle_timeout and self.gaze_follow_dir == self.GAZE_CENTER:
                 self.do_idle_motion()
 
             rospy.sleep(self.timeout)
+
+    def follow_gaze(self):
+        if self.gaze_dir == self.GAZE_CENTER:
+            if self.gaze_follow_dir == self.GAZE_LEFT:
+                self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=self.head_pitch, yaw=self.head_yaw - self.joint_attn_offset, velocity=90, units="degrees"))
+                self.head_yaw -= self.joint_attn_offset
+            elif self.gaze_follow_dir == self.GAZE_RIGHT:
+                self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=self.head_pitch, yaw=self.head_yaw + self.joint_attn_offset, velocity=90, units="degrees"))
+                self.head_yaw += self.joint_attn_offset
+            else:
+                return
+        
+            self.gaze_follow_dir = self.GAZE_CENTER
+            self.movement_start = rospy.Time.now()
+        elif self.gaze_dir == self.GAZE_LEFT and self.gaze_follow_dir == self.GAZE_CENTER:
+            self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=self.head_pitch, yaw=self.head_yaw + self.joint_attn_offset, velocity=90))
+            self.head_yaw += self.joint_attn_offset
+            self.gaze_follow_dir = self.GAZE_LEFT
+
+        elif self.gaze_dir == self.GAZE_RIGHT and self.gaze_follow_dir == self.GAZE_CENTER:
+            self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=self.head_pitch, yaw=self.head_yaw - self.joint_attn_offset, velocity=90))
+            self.head_yaw -= self.joint_attn_offset
+            self.gaze_follow_dir = self.GAZE_RIGHT
+        print("following gaze")
 
     def look_for_face(self):
         yaw = self.head_yaw
@@ -168,6 +195,18 @@ class GazeFollower:
                 self.head_pub.publish(MoveHead(roll = self.head_roll, pitch = self.head_pitch, yaw = self.head_yaw,
                     velocity=100, units="degrees"))
                 self.movement_start = rospy.Time.now()
+
+        # check gaze direction
+        if msg.is_left:
+            new_gaze = self.GAZE_LEFT
+        elif msg.is_right:
+            new_gaze = self.GAZE_RIGHT
+        else:
+            new_gaze = self.GAZE_CENTER
+        
+        if self.gaze_dir != new_gaze:
+            self.gaze_dir = new_gaze
+            self.gaze_last_changed = rospy.Time.now()
             
 if __name__ == "__main__":
     GazeFollower(0, 480, 640)
