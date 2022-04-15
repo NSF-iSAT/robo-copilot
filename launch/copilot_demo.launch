@@ -2,11 +2,10 @@
     <include file="$(find misty_wrapper)/launch/misty.launch" pass_all_args="true"></include>
     <node pkg="gaze_tracking_ros" type="gaze_tracker.py" name="gaze_tracker">
         <remap from="image_raw" to="/misty/id_0/camera/color/image_raw" />
+        <!-- <remap from="image_raw" to="/usb_cam/image_raw" /> -->
     </node>
     <!-- <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch"></include> -->
-    <!-- <include file="$(find gaze_tracking_ros)/launch/example.launch"/> -->
     <!-- <node name="code_listener" pkg="robo-copilot" type="code_listener.py" output="screen"/> -->
-    <!-- <node name="social_behaviors" pkg="robo-copilot" type="social_behaviors.py" output="screen"/> -->
     <node name="gaze_follower" pkg="robo-copilot" type="gaze_follower.py" output="screen"/>
     <!-- <include file="$(find ros_speech2text)/launch/ros_speech2text.launch">
         <arg name="audio_device_idx" value="7"/>

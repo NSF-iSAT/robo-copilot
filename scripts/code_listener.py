@@ -14,7 +14,18 @@ class CoPilotListener(object):
         self.expression_pub = rospy.Publisher('/misty/id_0/expression', String, queue_size=10)
         self.arms_pub = rospy.Publisher('/misty/id_0/arms', String, queue_size=10)
         rospy.init_node('code_listener', anonymous=True)
+
+        self.last_event = rospy.Time.now()
+        self.event_timeout = rospy.Duration(20)
+        
         self.for_count = 0
+
+        while not rospy.is_shutdown():
+            if rospy.Time.now() - self.last_event > self.event_timeout:
+                self.generic_thinkaloud_prompt()
+                self.last_event = rospy.Time.now()
+
+            rospy.sleep(0.1)
 
     def generic_thinkaloud_prompt(self):
         prompt_strings = [
@@ -29,6 +40,7 @@ class CoPilotListener(object):
 
     def event_cb(self, msg):
         # print(msg)
+        # simple demo/example of what this might look like
         if msg.type == "create":
             if msg.blockId in ["forever", "pxt_controls_for", "pxt_controls_for_of"]:
                 self.for_count += 1

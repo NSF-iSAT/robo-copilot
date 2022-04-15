@@ -161,11 +161,7 @@ include_directories(
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
-  # scripts/misty_ROS.py
-  # scripts/misty_AV.py
-  # scripts/misty_find_ip_ros.py
-  # scripts/demo.py
-  scripts/code_listener.py
+  # scripts/code_listener.py
   scripts/gaze_follower.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

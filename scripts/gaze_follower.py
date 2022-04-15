@@ -48,6 +48,8 @@ class GazeFollower:
         self.gaze_follow_dir = self.GAZE_CENTER
         self.movement_start = rospy.Time.now()
 
+        self.look_dir = 1
+
         gaze_sub = rospy.Subscriber("/gaze_state", GazeState, self.gaze_callback)
         self.head_pub = rospy.Publisher("/misty/id_0/head", MoveHead, queue_size=1)
         self.face_pub = rospy.Publisher("/misty/id_0/face_img", String, queue_size=1)
@@ -61,8 +63,8 @@ class GazeFollower:
             if rospy.Time.now() - self.gaze_last_seen > self.reset_timeout and rospy.Time.now() - self.movement_start > self.timeout:
                 self.look_for_face()
 
-            elif rospy.Time.now() - self.gaze_last_changed > self.joint_attn_timeout and self.gaze_dir != self.gaze_follow_dir:
-                self.follow_gaze()
+            # elif rospy.Time.now() - self.gaze_last_changed > self.joint_attn_timeout and self.gaze_dir != self.gaze_follow_dir:
+            #     self.follow_gaze()
 
             elif rospy.Time.now() - self.movement_start > self.idle_timeout and self.gaze_follow_dir == self.GAZE_CENTER:
                 self.do_idle_motion()
