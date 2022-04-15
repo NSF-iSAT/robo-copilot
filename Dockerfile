@@ -13,8 +13,8 @@ WORKDIR   /home/ros
 
 RUN apt-get update && apt-get -y install git-core && apt-get -y install python3 \
  && apt-get -y install python3-pip && apt-get -y install python3-dev
-RUN apt install ffmpeg libsm6 libxext6  -y
-RUN apt install -y python-tk
+RUN apt-get install ffmpeg libsm6 libxext6  -y
+RUN apt-get install -y python3-tk
 RUN apt-get install -y ros-noetic-cv-bridge && apt-get install -y ros-noetic-vision-opencv
 
 USER ros
@@ -35,7 +35,8 @@ WORKDIR /home/ros/ros_ws/src
 
 # Add cloning of any ROS packages
 RUN git clone https://github.com/tim-fan/gaze_tracking_ros.git
-RUN git clone https://github.com/NSF-iSAT/misty_wrapper.git
+RUN git clone https://github.com/NSF-iSAT/misty_wrapper.git \
+    && cd misty_wrapper && pip install -r requirements.txt
 # copy this package & build
 RUN mkdir robo-copilot
 COPY . robo-copilot/
@@ -44,4 +45,4 @@ RUN source /opt/ros/noetic/setup.bash && cd /home/ros/ros_ws && catkin_make
 ENTRYPOINT ["/bin/ros-entrypoint.sh"]
 
 EXPOSE 5000
-CMD "roslaunch robo-copilot copilot.launch"
+CMD ["roslaunch", "robo-copilot", "copilot_demo.launch", "use_av:=false"]
