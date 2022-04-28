@@ -7,16 +7,15 @@ from misty_wrapper.msg import MoveArm, MoveArms, MoveHead
 from ros_speech2text.msg import StartUtterance, Transcript
 from std_msgs.msg import String
 
+import xml.etree.ElementTree as ET
+from collections import defaultdict
+
 class CoPilotListener(object):
     def __init__(self):
         self.misty_id = 0
 
         # subscribers
         # self.event_sub = rospy.Subscriber('/makecode_event', BlockEvent, callback=self.event_cb)
-        self.xml_sub   = rospy.Subscriber('/makecode_xml', String, callback=self.xml_cb)
-        
-        self.s2t_sub = rospy.Subscriber('/speech_to_text/transcript', Transcript, callback=self.s2t_cb)
-        self.utterance_start_sub = rospy.Subscriber('/speech_to_text/utterance_start', StartUtterance, callback=self.utterance_start_cb)
 
         # publishers
         self.speech_pub = rospy.Publisher('/misty/id_0/speech', String, queue_size=10)
@@ -28,7 +27,13 @@ class CoPilotListener(object):
         self.last_speech_time = rospy.Time.now()
 
         self.event_timeout = rospy.Duration(100)
-        self.speech_timeout = rospy.Duration(10)
+        self.speech_timeout = rospy.Duration(100)
+
+        self.stats_by_block = defaultdict(lambda: 0)
+
+        self.xml_sub   = rospy.Subscriber('/makecode_xml', String, callback=self.xml_cb)        
+        self.s2t_sub = rospy.Subscriber('/speech_to_text/transcript', Transcript, callback=self.s2t_cb)
+        self.utterance_start_sub = rospy.Subscriber('/speech_to_text/utterance_start', StartUtterance, callback=self.utterance_start_cb)
 
         while not rospy.is_shutdown():
             if rospy.Time.now() - self.last_speech_time > self.speech_timeout:
@@ -48,8 +53,16 @@ class CoPilotListener(object):
         self.last_speech_time = rospy.Time.now()
         self.speech_pub.publish(msg)
 
+    def parse_blockly_xml(self, root):
+        for child in root:
+            if child.name=='block':
+                if self.stats_by_block[child.attrib['id']] == 0:
+                    self.stats_by_block[child.attrib['id']] = 1
+            self.parse_blockly_xml(child)
+    
     def xml_cb(self, msg):
         self.latest_xml = msg.data
+        root = ET.fromstring(self.latest_xml)
 
     def event_cb(self, msg):
         self.latest_event = msg.data

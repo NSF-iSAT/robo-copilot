@@ -38,11 +38,11 @@ RUN git clone https://github.com/tim-fan/gaze_tracking_ros.git
 RUN git clone https://github.com/NSF-iSAT/misty_wrapper.git \
     && cd misty_wrapper && pip install -r requirements.txt
 # copy this package & build
-RUN mkdir robo-copilot
-COPY . robo-copilot/
+RUN mkdir robo_copilot
+COPY . robo_copilot/
 RUN source /opt/ros/noetic/setup.bash && cd /home/ros/ros_ws && catkin_make
 
 ENTRYPOINT ["/bin/ros-entrypoint.sh"]
 
 EXPOSE 5000
-CMD ["roslaunch", "robo-copilot", "copilot_demo.launch", "use_av:=false"]
+CMD ["roslaunch", "robo_copilot", "copilot_demo.launch", "use_av:=false"]

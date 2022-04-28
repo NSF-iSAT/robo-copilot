@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(robo-copilot)
+project(robo_copilot)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -10,6 +10,7 @@ project(robo-copilot)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
+  message_generation
 )
 
 ## System dependencies are found with CMake's conventions
@@ -46,13 +47,10 @@ find_package(catkin REQUIRED COMPONENTS
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#    FILES
-#    MoveArm.msg
-#    MoveArms.msg
-#    MoveHead.msg
-#    DetectedFace.msg
-#  )
+add_message_files(
+   FILES
+   BlockEvent.msg
+ )
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -69,10 +67,10 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate added messages and services with any dependencies listed here
-#  generate_messages(
-#    DEPENDENCIES
-#    std_msgs
-#  )
+ generate_messages(
+   DEPENDENCIES
+   std_msgs
+ )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -106,7 +104,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES isat_robot_control
-CATKIN_DEPENDS roscpp rospy
+CATKIN_DEPENDS roscpp rospy message_runtime
 #  DEPENDS system_lib
 )
 

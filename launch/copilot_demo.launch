@@ -2,6 +2,7 @@
     <arg name="use_robot"       default="true"/>
     <arg name="camera_topic"    default="/misty/id_0/camera/color/image_raw"/>
     <arg name="use_s2t"         default="false"/>
+    <arg name="use_tts"         default="true"/>
     <arg name="audio_device"    default="7"/> 
     <arg name="use_rosbridge"   default="false"/>
 
@@ -13,7 +14,7 @@
         <remap from="image_raw" to="$(arg camera_topic)" />
     </node>
 
-    <node name="gaze_follower" pkg="robo-copilot" type="gaze_follower.py" output="screen"/>
+    <node name="gaze_follower" pkg="robo_copilot" type="gaze_follower.py" output="screen"/>
 
     <group if="$(arg use_s2t)">
         <include file="$(find ros_speech2text)/launch/ros_speech2text.launch">
@@ -21,11 +22,17 @@
         </include>
     </group>
 
-    <group if="$(arg use_rosbridge)">
-        <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch"></include>
-        <node name="code_listener" pkg="robo-copilot" type="code_listener.py" output="screen"/>
+    <group if="$(arg use_tts)">
+        <node name="google_tts" pkg="robo_copilot" type="google_tts.py" output="screen"/>
     </group>
 
-    <node name="code_listener" pkg="robo-copilot" type="code_listener.py" output="screen"/>
+    <group if="$(arg use_rosbridge)">
+        <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch"></include>
+        <node name="code_listener" pkg="robo_copilot" type="code_listener.py" output="screen">
+            <remap from="/misty/id_0/speech" to="text_to_speech"/>
+        </node>
+    </group>
+
+    <!-- <node name="code_listener" pkg="robo_copilot" type="code_listener.py" output="screen"/> -->
 
 </launch>
