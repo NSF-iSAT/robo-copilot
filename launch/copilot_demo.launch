@@ -26,4 +26,6 @@
         <node name="code_listener" pkg="robo-copilot" type="code_listener.py" output="screen"/>
     </group>
 
+    <node name="code_listener" pkg="robo-copilot" type="code_listener.py" output="screen"/>
+
 </launch>

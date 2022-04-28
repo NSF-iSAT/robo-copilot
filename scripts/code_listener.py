@@ -1,31 +1,41 @@
 #!/usr/bin/env python
-from random import random
+import random
 
 import rospy
-from makecode_ros_msgs.msg import BlockEvent
+# from makecode_ros_msgs.msg import BlockEvent
 from misty_wrapper.msg import MoveArm, MoveArms, MoveHead
+from ros_speech2text.msg import StartUtterance, Transcript
 from std_msgs.msg import String
 
 class CoPilotListener(object):
     def __init__(self):
         self.misty_id = 0
-        self.event_sub = rospy.Subscriber('/makecode_event', BlockEvent, callback=self.event_cb)
+
+        # subscribers
+        # self.event_sub = rospy.Subscriber('/makecode_event', BlockEvent, callback=self.event_cb)
+        self.xml_sub   = rospy.Subscriber('/makecode_xml', String, callback=self.xml_cb)
+        
+        self.s2t_sub = rospy.Subscriber('/speech_to_text/transcript', Transcript, callback=self.s2t_cb)
+        self.utterance_start_sub = rospy.Subscriber('/speech_to_text/utterance_start', StartUtterance, callback=self.utterance_start_cb)
+
+        # publishers
         self.speech_pub = rospy.Publisher('/misty/id_0/speech', String, queue_size=10)
         self.expression_pub = rospy.Publisher('/misty/id_0/expression', String, queue_size=10)
-        self.arms_pub = rospy.Publisher('/misty/id_0/arms', String, queue_size=10)
+
         rospy.init_node('code_listener', anonymous=True)
 
-        self.last_event = rospy.Time.now()
-        self.event_timeout = rospy.Duration(20)
-        
-        self.for_count = 0
+        self.last_event_time  = rospy.Time.now()
+        self.last_speech_time = rospy.Time.now()
+
+        self.event_timeout = rospy.Duration(100)
+        self.speech_timeout = rospy.Duration(10)
 
         while not rospy.is_shutdown():
-            if rospy.Time.now() - self.last_event > self.event_timeout:
+            if rospy.Time.now() - self.last_speech_time > self.speech_timeout:
                 self.generic_thinkaloud_prompt()
-                self.last_event = rospy.Time.now()
+                self.last_speech_time = rospy.Time.now()
 
-            rospy.sleep(0.1)
+            rospy.sleep(0.5)
 
     def generic_thinkaloud_prompt(self):
         prompt_strings = [
@@ -35,22 +45,21 @@ class CoPilotListener(object):
         ]
 
         msg = String(random.choice(prompt_strings))
+        self.last_speech_time = rospy.Time.now()
+        self.speech_pub.publish(msg)
 
-        self.speech_pub(msg)
+    def xml_cb(self, msg):
+        self.latest_xml = msg.data
 
     def event_cb(self, msg):
-        # print(msg)
-        # simple demo/example of what this might look like
-        if msg.type == "create":
-            if msg.blockId in ["forever", "pxt_controls_for", "pxt_controls_for_of"]:
-                self.for_count += 1
-                if self.for_count >= 3:
-                    self.expression_pub.publish(String("e_Surprise.jpg"))
-                    self.speech_pub.publish(String("I'm sorry, I'm afraid that's just too many loops!"))
-                    arms_up = MoveArms({"left": MoveArm(10, 100), "right": MoveArm(10, 100)})
-                    self.arms_pub.publish(arms_up)
-                    self.for_count -= 1
-                    
+        self.latest_event = msg.data
+        self.last_event_time = rospy.Time.now()
+
+    def s2t_cb(self, msg):
+        self.latest_s2t = msg.data
+    
+    def utterance_start_cb(self, msg):
+        self.last_speech_time = rospy.Time.now()
 
 if __name__ == "__main__":
     listener = CoPilotListener()
