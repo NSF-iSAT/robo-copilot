@@ -17,6 +17,7 @@ class CoPilotListener(object):
 
         # TODO: add dictionary for block names (from blockly to common)
         self.naming_dict = {}
+        self.known_blocks = []
         
         # publishers
         self.speech_pub = rospy.Publisher('/misty/id_0/speech', String, queue_size=10)
@@ -37,12 +38,14 @@ class CoPilotListener(object):
         self.s2t_sub = rospy.Subscriber('/speech_to_text/transcript', Transcript, callback=self.s2t_cb)
         self.utterance_start_sub = rospy.Subscriber('/speech_to_text/utterance_start', StartUtterance, callback=self.utterance_start_cb)
 
-        # while not rospy.is_shutdown():
-        #     if rospy.Time.now() - self.last_speech_time > self.speech_timeout:
-        #         self.generic_thinkaloud_prompt()
-        #         self.last_speech_time = rospy.Time.now()
+        while not rospy.is_shutdown():
+            if rospy.Time.now() - self.last_speech_time > self.speech_timeout:
+                self.generic_thinkaloud_prompt()
+                self.last_speech_time = rospy.Time.now()
 
-        #     rospy.sleep(0.5)
+            rospy.sleep(0.5)
+        with open("block_data", "w") as f:
+            f.write(str(self.known_blocks))
 
     def generic_thinkaloud_prompt(self):
         prompt_strings = [
@@ -61,33 +64,35 @@ class CoPilotListener(object):
                 if self.stats_by_block[child.attrib['id']] == 0:
                     self.stats_by_block[child.attrib['id']] = 1
                     self.types_by_block[child.attrib['id']] = child.attrib['type']
+                if child.attrib['type'] not in self.known_blocks:
+                    self.known_blocks.append(child.attrib['type'])
             self.parse_blockly_xml(child)
     
     def xml_cb(self, msg):
-        # self.latest_xml = msg.data
-        # root = ET.fromstring(self.latest_xml)
+        self.latest_xml = msg.data
+        root = ET.fromstring(self.latest_xml)
 
-    def review_edits(self):
-        max_edit_block_id = max(self.stats_by_block.keys(), key=lambda k: self.stats_by_block[k])
-        min_edit_block_id = min(self.stats_by_block.keys(), key=lambda k: self.stats_by_block[k])
+    # def review_edits(self):
+    #     max_edit_block_id = max(self.stats_by_block.keys(), key=lambda k: self.stats_by_block[k])
+    #     min_edit_block_id = min(self.stats_by_block.keys(), key=lambda k: self.stats_by_block[k])
         
-        max_edit_block_name = self.types_by_block[max_edit_block_id]
-        min_edit_block_name = self.types_by_block[min_edit_block_id]
+    #     max_edit_block_name = self.types_by_block[max_edit_block_id]
+    #     min_edit_block_name = self.types_by_block[min_edit_block_id]
 
-        if random.random() < 0.5:
-            # comment on high-edit block
-            block_name = naming_dict[max_edit_block_name]
-            str_to_utter = "I think you're editing that %s block a lot. \
-                What is that block supposed to do?" % block_name
-            self.speech_pub.publish(String(str_to_utter))
-            self.stats_by_block[max_edit_block_id] = 0
+    #     if random.random() < 0.5:
+    #         # comment on high-edit block
+    #         block_name = naming_dict[max_edit_block_name]
+    #         str_to_utter = "I think you're editing that %s block a lot. \
+    #             What is that block supposed to do?" % block_name
+    #         self.speech_pub.publish(String(str_to_utter))
+    #         self.stats_by_block[max_edit_block_id] = 0
 
-        else:
-            # comment on low-edit block
-            block_name = naming_dict[min_edit_block_name]
-            str_to_utter = "Have you looked at that %s block at all? Maybe the problem is there." % block_name
-            self.speech_pub.publish(String(str_to_utter))
-            self.stats_by_block[min_edit_block_id] = 0
+    #     else:
+    #         # comment on low-edit block
+    #         block_name = naming_dict[min_edit_block_name]
+    #         str_to_utter = "Have you looked at that %s block at all? Maybe the problem is there." % block_name
+    #         self.speech_pub.publish(String(str_to_utter))
+    #         self.stats_by_block[min_edit_block_id] = 0
 
     def event_cb(self, msg):
         self.latest_event = msg.data
