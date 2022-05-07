@@ -2,6 +2,7 @@ import random
 import rospy
 from misty_wrapper.msg import MoveHead
 from gaze_tracking_ros.msg import GazeState
+from ros_speech2text.msg import Event
 from std_msgs.msg import String
 
 # idk about some of these parameters, I just based it on https://github.com/MistySampleSkills/Misty-Concierge-Template/blob/master/JavaScript/conciergeBaseTemplate/conciergeBaseTemplate.js
@@ -49,8 +50,10 @@ class GazeFollower:
         self.movement_start = rospy.Time.now()
 
         self.look_dir = 1
+        self.listening = False
 
         gaze_sub = rospy.Subscriber("/gaze_state", GazeState, self.gaze_callback)
+        listening_sub = rospy.Subscriber("/speech_to_text/log", Event, self.listening_callback)
         self.head_pub = rospy.Publisher("/misty/id_0/head", MoveHead, queue_size=1)
         self.face_pub = rospy.Publisher("/misty/id_0/face_img", String, queue_size=1)
 
@@ -69,7 +72,17 @@ class GazeFollower:
             elif rospy.Time.now() - self.movement_start > self.idle_timeout and self.gaze_follow_dir == self.GAZE_CENTER:
                 self.do_idle_motion()
 
+            elif self.listening:
+                # TODO add more interesting things to do when listening
+                self.do_idle_motion()
+
             rospy.sleep(self.timeout)
+
+    def listening_callback(self, msg):
+        if msg.event == msg.STARTED:
+            self.listening = True
+        elif msg.event == msg.STOPPED:
+            self.listening = False
 
     def follow_gaze(self):
         if self.gaze_dir == self.GAZE_CENTER:
