@@ -2,9 +2,9 @@
     <arg name="use_robot"       default="true"/>
     <arg name="camera_topic"    default="/misty/id_0/camera/color/image_raw"/>
     <arg name="use_s2t"         default="false"/>
-    <arg name="use_tts"         default="true"/>
+    <arg name="use_tts"         default="false"/>
     <arg name="audio_device"    default="7"/> 
-    <arg name="use_rosbridge"   default="false"/>
+    <arg name="use_rosbridge"   default="true"/>
 
     <group if="$(arg use_robot)">
         <include file="$(find misty_wrapper)/launch/misty.launch" pass_all_args="true"></include>
