@@ -7,8 +7,10 @@ import sys
 from pygdbmi.gdbcontroller import GdbController
 from distutils.spawn import find_executable
 from pprint import pprint
+import rospy
+from std_msgs.msg import String
 
-class tkCppEditor:
+class tkCppEditorNode:
     def __init__(self):
         self.root = Tk()
         self.root.title("TK Editor")
@@ -68,22 +70,34 @@ class tkCppEditor:
         
         self.text_area.bind("<KeyPress>", self.keypress_cb)
 
-        self.current_text = ""
+        # set up ros bindings
+        rospy.init_node('cpp_editor_node')
+        self.code_pub = rospy.Publisher('cpp_editor_node/text', String, queue_size=1)
+        self.test_pub = rospy.Publisher('cpp_editor_node/test', String, queue_size=1)
+
+        self.run()
+
+    def run(self):
+        self._open_file("/home/kaleb/code/ros_ws/src/robo_copilot/src/linked_list.cpp")
+
         self.root.update()
         self.root.mainloop()
+        self.root.quit()
 
     def compile(self, cpp_file, binary_file):
         res = subprocess.run(["g++", "-g3", cpp_file, "-o", binary_file], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        print(res.stdout)
+        pprint(res.stdout)
         if res.returncode != 0:
-            print(res.stderr)
+            pprint(res.stderr)
             return False
         return True
 
+    def get_code(self):
+        return self.text_area.get(1.0, END)
+
     def keypress_cb(self, key):
         self.current_text = self.text_area.get(1.0, END)
-        # TODO
-        pass
+        self.code_pub.publish(self.current_text)
 
     def run_test(self):
         self.save_file()
@@ -99,9 +113,14 @@ class tkCppEditor:
 
         gdbmi = GdbController()
         response = gdbmi.write('-file-exec-file ' + binary_file)
-        pprint(response)
+        print(response)
         os.remove(binary_file)
-        # TODO
+
+    def _open_file(self, filename):
+        with open(filename, "r") as file:
+            self.text_area.insert(1.0, file.read())
+            file.close()
+        self.file_name = filename
 
     # Creating all the functions of all the buttons in the NotePad
     def open_file(self):
@@ -110,9 +129,7 @@ class tkCppEditor:
         if file != '':
             self.root.title(f"{os.path.basename(file)}")
             self.text_area.delete(1.0, END)
-            with open(file, "r") as file_:
-                self.text_area.insert(1.0, file_.read())
-                file_.close()
+            self._open_file(file)
         else:
             file = None
 
@@ -177,4 +194,4 @@ class tkCppEditor:
         mb.showinfo(title="All commands", message=commands, width=60, height=40)
 
 if __name__ == "__main__":
-    tkCppEditor()
+    tkCppEditorNode()

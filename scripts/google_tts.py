@@ -10,7 +10,7 @@ class MistyGoogleTTS:
         os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/kaleb/Desktop/google-auth.json'
 
         self.language = 'en-AU'
-        self.voice = 'en-AU-Wavenet-D'
+        self.voice = 'en-AU-Standard-A'
 
         self.voice_params = tts.VoiceSelectionParams(
             language_code=self.language,
