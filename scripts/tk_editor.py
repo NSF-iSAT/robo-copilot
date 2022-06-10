@@ -86,9 +86,10 @@ class tkCppEditorNode:
 
     def compile(self, cpp_file, binary_file):
         res = subprocess.run(["g++", "-g3", cpp_file, "-o", binary_file], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        pprint(res.stdout)
+        print(res.stdout)
         if res.returncode != 0:
-            pprint(res.stderr)
+            print(str(res.stderr))
+            self.test_pub.publish(res.stderr.decode('utf-8'))
             return False
         return True
 
@@ -114,6 +115,7 @@ class tkCppEditorNode:
         gdbmi = GdbController()
         response = gdbmi.write('-file-exec-file ' + binary_file)
         print(response)
+        self.test_pub.publish(String(str(response)))
         os.remove(binary_file)
 
     def _open_file(self, filename):
