@@ -1,6 +1,6 @@
 import random
 import rospy
-from misty_wrapper.msg import MoveHead
+from misty_wrapper.msg import MoveHead, MoveArm, MoveArms
 from gaze_tracking_ros.msg import GazeState
 from ros_speech2text.msg import Event
 from std_msgs.msg import String
@@ -50,6 +50,8 @@ class GazeFollower:
         speech_sub = rospy.Subscriber("speech_to_text/log", Event, self.speaking_callback)
         self.head_pub = rospy.Publisher("/misty/id_0/head", MoveHead, queue_size=1)
         self.face_pub = rospy.Publisher("/misty/id_0/face_img", String, queue_size=1)
+        self.arms_pub = rospy.Publisher("/misty/id_0/arms", MoveArms, queue_size=1)
+        self.speech_pub = rospy.Publisher("/misty/id_0/speech", String, queue_size=1)
 
         # reset head position
         rospy.sleep(5)
@@ -59,6 +61,10 @@ class GazeFollower:
         self.is_listening = False
         # should robot do idle behaviors?
         self.do_idle = True
+        self.spoken_backchannel_options = [
+            "Hmmmm",
+            "I see",
+        ]
 
         while not rospy.is_shutdown():
             # print("looping: ", (rospy.Time.now() - self.movement_start).to_sec())
@@ -72,12 +78,46 @@ class GazeFollower:
             #     self.do_idle_motion()
 
             rospy.sleep(self.timeout)
+    
+    def spoken_backhannel(self):
+        bc = random.choice(self.spoken_backchannel_options)
+        self.speech_pub.publish(bc)
+
+    def arm_waggle(self):
+        l_arm = MoveArm(value=10, velocity=100)
+        r_arm = MoveArm(value=0, velocity=100)
+        self.arms_pub.publish(MoveArms(leftArm=l_arm, rightArm=r_arm))
+
+        rospy.sleep(0.5)
+
+        l_arm = MoveArm(value=0, velocity=100)
+        r_arm = MoveArm(value=10, velocity=100)
+        self.arms_pub.publish(MoveArms(leftArm=l_arm, rightArm=r_arm))
+
+        rospy.sleep(1.0)
+
+        straight_arm = MoveArm(value=5, velocity=50)
+        self.arms_pub.publish(MoveArms(leftArm=straight_arm, rightArm=straight_arm))
+
+    def nod(self):
+        pitch_factor = -20
+        if self.head_pitch + 20 <= PITCH_DOWN:
+            pitch_factor = 20
+
+        self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=self.head_pitch-pitch_factor, yaw=self.head_yaw,
+            velocity=100, units="degrees"))
+        self.movement_start = rospy.Time.now()
+
+        rospy.sleep(1.0)
+        self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=self.head_pitch, yaw=self.head_yaw,
+            velocity=100, units="degrees"))
+        self.movement_start = rospy.Time.now()
 
     def speaking_callback(self, msg):
         if msg.event == msg.STARTED:
             self.is_listening = True
             # tilt head and change expression to indicate listening
-            self.head_pub.publish(MoveHead(roll=self.head_roll+25, pitch=self.head_pitch, yaw=self.head_yaw, velocity=90))
+            self.head_pub.publish(MoveHead(roll=self.head_roll+(25 * random.choice([-1, 1])), pitch=self.head_pitch, yaw=self.head_yaw, velocity=90))
             self.face_pub.publish(String("e_Joy.jpg"))
 
         elif msg.event == msg.STOPPED:
@@ -85,6 +125,8 @@ class GazeFollower:
             # reset head position to original (before tilt)
             self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=self.head_pitch, yaw=self.head_yaw, velocity=90))
             self.face_pub.publish(String("e_DefaultContent.jpg"))
+            self.nod()
+            self.arm_waggle()
 
     def look_for_face(self):
         yaw = self.head_yaw
