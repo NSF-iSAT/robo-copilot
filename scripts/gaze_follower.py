@@ -1,6 +1,6 @@
 import random
 import rospy
-from misty_wrapper.msg import MoveHead
+from misty_wrapper.msg import MoveHead, MoveArm, MoveArms
 from gaze_tracking_ros.msg import GazeState
 from ros_speech2text.msg import Event
 from std_msgs.msg import String
@@ -23,10 +23,6 @@ HEIGHT_RANGE = 120
 DELTA_MIN = 0.1
 
 class GazeFollower:
-    GAZE_RIGHT = 0
-    GAZE_LEFT = 1
-    GAZE_CENTER = 2
-
     def __init__(self, misty_id, img_w, img_h):
         rospy.init_node("gaze_follower", anonymous=True)
 
@@ -45,68 +41,96 @@ class GazeFollower:
 
         self.gaze_last_seen = rospy.Time.now()
         self.gaze_last_changed = rospy.Time.now()
-        self.gaze_dir = self.GAZE_CENTER
-        self.gaze_follow_dir = self.GAZE_CENTER
         self.movement_start = rospy.Time.now()
 
-        self.look_dir = 1
-        self.listening = False
+        self.look_dir = 1 # for when scanning for faces
 
+        # pubs and subs
         gaze_sub = rospy.Subscriber("/gaze_state", GazeState, self.gaze_callback)
-        listening_sub = rospy.Subscriber("/speech_to_text/log", Event, self.listening_callback)
+        speech_sub = rospy.Subscriber("speech_to_text/log", Event, self.speaking_callback)
         self.head_pub = rospy.Publisher("/misty/id_0/head", MoveHead, queue_size=1)
         self.face_pub = rospy.Publisher("/misty/id_0/face_img", String, queue_size=1)
+        self.arms_pub = rospy.Publisher("/misty/id_0/arms", MoveArms, queue_size=1)
+        self.speech_pub = rospy.Publisher("/misty/id_0/speech", String, queue_size=1)
 
         # reset head position
         rospy.sleep(5)
         self.reset()
 
+        # is user actively speaking?
+        self.is_listening = False
+        # should robot do idle behaviors?
+        self.do_idle = True
+        self.spoken_backchannel_options = [
+            "Hmmmm",
+            "I see",
+        ]
+
         while not rospy.is_shutdown():
             # print("looping: ", (rospy.Time.now() - self.movement_start).to_sec())
-            if rospy.Time.now() - self.gaze_last_seen > self.reset_timeout and rospy.Time.now() - self.movement_start > self.timeout:
+            if self.is_listening:
+                self.do_idle = False
+
+            elif rospy.Time.now() - self.gaze_last_seen > self.reset_timeout and rospy.Time.now() - self.movement_start > self.timeout:
                 self.look_for_face()
 
-            # elif rospy.Time.now() - self.gaze_last_changed > self.joint_attn_timeout and self.gaze_dir != self.gaze_follow_dir:
-            #     self.follow_gaze()
-
-            elif rospy.Time.now() - self.movement_start > self.idle_timeout and self.gaze_follow_dir == self.GAZE_CENTER:
-                self.do_idle_motion()
+            # elif rospy.Time.now() - self.movement_start > self.idle_timeout :
+            #     self.do_idle_motion()
 
             elif self.listening:
                 # TODO add more interesting things to do when listening
                 self.do_idle_motion()
 
             rospy.sleep(self.timeout)
+    
+    def spoken_backhannel(self):
+        bc = random.choice(self.spoken_backchannel_options)
+        self.speech_pub.publish(bc)
 
-    def listening_callback(self, msg):
+    def arm_waggle(self):
+        l_arm = MoveArm(value=10, velocity=100)
+        r_arm = MoveArm(value=0, velocity=100)
+        self.arms_pub.publish(MoveArms(leftArm=l_arm, rightArm=r_arm))
+
+        rospy.sleep(0.5)
+
+        l_arm = MoveArm(value=0, velocity=100)
+        r_arm = MoveArm(value=10, velocity=100)
+        self.arms_pub.publish(MoveArms(leftArm=l_arm, rightArm=r_arm))
+
+        rospy.sleep(1.0)
+
+        straight_arm = MoveArm(value=5, velocity=50)
+        self.arms_pub.publish(MoveArms(leftArm=straight_arm, rightArm=straight_arm))
+
+    def nod(self):
+        pitch_factor = -20
+        if self.head_pitch + 20 <= PITCH_DOWN:
+            pitch_factor = 20
+
+        self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=self.head_pitch-pitch_factor, yaw=self.head_yaw,
+            velocity=100, units="degrees"))
+        self.movement_start = rospy.Time.now()
+
+        rospy.sleep(1.0)
+        self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=self.head_pitch, yaw=self.head_yaw,
+            velocity=100, units="degrees"))
+        self.movement_start = rospy.Time.now()
+
+    def speaking_callback(self, msg):
         if msg.event == msg.STARTED:
-            self.listening = True
+            self.is_listening = True
+            # tilt head and change expression to indicate listening
+            self.head_pub.publish(MoveHead(roll=self.head_roll+(25 * random.choice([-1, 1])), pitch=self.head_pitch, yaw=self.head_yaw, velocity=90))
+            self.face_pub.publish(String("e_Joy.jpg"))
+
         elif msg.event == msg.STOPPED:
-            self.listening = False
-
-    def follow_gaze(self):
-        if self.gaze_dir == self.GAZE_CENTER:
-            if self.gaze_follow_dir == self.GAZE_LEFT:
-                self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=self.head_pitch, yaw=self.head_yaw - self.joint_attn_offset, velocity=90, units="degrees"))
-                self.head_yaw -= self.joint_attn_offset
-            elif self.gaze_follow_dir == self.GAZE_RIGHT:
-                self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=self.head_pitch, yaw=self.head_yaw + self.joint_attn_offset, velocity=90, units="degrees"))
-                self.head_yaw += self.joint_attn_offset
-            else:
-                return
-        
-            self.gaze_follow_dir = self.GAZE_CENTER
-            self.movement_start = rospy.Time.now()
-        elif self.gaze_dir == self.GAZE_LEFT and self.gaze_follow_dir == self.GAZE_CENTER:
-            self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=self.head_pitch, yaw=self.head_yaw + self.joint_attn_offset, velocity=90))
-            self.head_yaw += self.joint_attn_offset
-            self.gaze_follow_dir = self.GAZE_LEFT
-
-        elif self.gaze_dir == self.GAZE_RIGHT and self.gaze_follow_dir == self.GAZE_CENTER:
-            self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=self.head_pitch, yaw=self.head_yaw - self.joint_attn_offset, velocity=90))
-            self.head_yaw -= self.joint_attn_offset
-            self.gaze_follow_dir = self.GAZE_RIGHT
-        print("following gaze")
+            self.is_listening = False
+            # reset head position to original (before tilt)
+            self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=self.head_pitch, yaw=self.head_yaw, velocity=90))
+            self.face_pub.publish(String("e_DefaultContent.jpg"))
+            self.nod()
+            self.arm_waggle()
 
     def look_for_face(self):
         yaw = self.head_yaw
@@ -147,25 +171,6 @@ class GazeFollower:
         self.head_roll = 0
         self.movement_start = rospy.Time.now()
 
-    def gaze_callback(self, msg):
-        self.gaze_last_seen = rospy.Time.now()
-        if rospy.Time.now() - self.movement_start > self.timeout:
-            avg_pupil_x = (msg.pupil_left_coords.x + msg.pupil_right_coords.x) / 2.0
-            avg_pupil_y = (msg.pupil_left_coords.y + msg.pupil_right_coords.y) / 2.0
-
-            avg_pupil_x = avg_pupil_x / self.img_dims[0] - 0.5
-            avg_pupil_y = avg_pupil_y / self.img_dims[1] - 0.5
-
-            # calculate head movement
-            if (abs(avg_pupil_x) + abs(avg_pupil_y)) > DELTA_MIN:
-                self.head_yaw -= (WIDTH_RANGE / 2 * avg_pupil_x)
-                self.head_pitch += (HEIGHT_RANGE / 2 * avg_pupil_y)
-
-                if self.head_yaw < YAW_RIGHT:
-                    self.head_yaw = YAW_RIGHT
-                elif self.head_yaw > YAW_LEFT:
-                    self.head_yaw = YAW_LEFT
-
     def reset(self):
         self.head_pub.publish(MoveHead(roll=0, pitch=0, yaw=0,
             velocity=100, units="degrees"))
@@ -179,9 +184,6 @@ class GazeFollower:
         if rospy.Time.now() - self.movement_start > self.timeout:
             avg_pupil_x = (msg.pupil_left_coords.x + msg.pupil_right_coords.x) / 2.0
             avg_pupil_y = (msg.pupil_left_coords.y + msg.pupil_right_coords.y) / 2.0
-            
-            # print(msg)
-
             avg_pupil_x = avg_pupil_x / self.img_dims[0] - 0.5
             avg_pupil_y = avg_pupil_y / self.img_dims[1] - 0.5
 
@@ -210,18 +212,6 @@ class GazeFollower:
                 self.head_pub.publish(MoveHead(roll = self.head_roll, pitch = self.head_pitch, yaw = self.head_yaw,
                     velocity=100, units="degrees"))
                 self.movement_start = rospy.Time.now()
-
-        # check gaze direction
-        if msg.is_left:
-            new_gaze = self.GAZE_LEFT
-        elif msg.is_right:
-            new_gaze = self.GAZE_RIGHT
-        else:
-            new_gaze = self.GAZE_CENTER
-        
-        if self.gaze_dir != new_gaze:
-            self.gaze_dir = new_gaze
-            self.gaze_last_changed = rospy.Time.now()
             
 if __name__ == "__main__":
     GazeFollower(0, 480, 640)

@@ -2,8 +2,8 @@
 import random
 
 import rospy
-from misty_wrapper.msg import MoveArm, MoveArms, MoveHead
-from ros_speech2text.msg import StartUtterance, Transcript
+# from misty_wrapper.msg import MoveArm, MoveArms, MoveHead
+from ros_speech2text.msg import Event, Transcript
 from std_msgs.msg import String
 from robo_copilot.msg import BlockEvent
 
@@ -61,7 +61,7 @@ class CoPilotListener(object):
         self.xml_sub   = rospy.Subscriber('/makecode_xml', String, callback=self.xml_cb)        
         self.event_sub = rospy.Subscriber('/makecode_event', BlockEvent, callback=self.event_cb)
         self.s2t_sub = rospy.Subscriber('/speech_to_text/transcript', Transcript, callback=self.s2t_cb)
-        self.utterance_start_sub = rospy.Subscriber('/speech_to_text/utterance_start', StartUtterance, callback=self.utterance_start_cb)
+        self.s2t_event_sub = rospy.Subscriber('/speech_to_text/log', Event, callback=self.utterance_start_cb)
 
         while not rospy.is_shutdown():
             if rospy.Time.now() - self.last_speech_time > self.speech_timeout:
@@ -106,6 +106,16 @@ class CoPilotListener(object):
                         pass
             self.parse_blockly_xml(child, new_governing_block)
     
+    def nod(self):
+        
+
+    def listening_behaviors(self):
+        # TODO
+        pass
+
+    def post_listening_behaviors(self):
+        # TODO
+        pass
 
     def xml_cb(self, msg):
         self.latest_xml = msg.data
@@ -165,10 +175,14 @@ class CoPilotListener(object):
                 pass
 
     def s2t_cb(self, msg):
-        self.latest_s2t = msg.data
+        self.latest_s2t = msg.transcript
     
     def utterance_start_cb(self, msg):
         self.last_speech_time = rospy.Time.now()
+        if msg.event == msg.STARTED:
+            self.is_listening = True
+        elif msg.event == msg.STOPPED:
+            self.is_listening = False
 
 if __name__ == "__main__":
     listener = CoPilotListener()
