@@ -78,7 +78,7 @@ class tkCppEditorNode:
         self.run()
 
     def run(self):
-        self._open_file("/home/kaleb/code/ros_ws/src/robo_copilot/src/linked_list.cpp")
+        self._open_file("/home/kaleb/code/ros_ws/src/robo_copilot/assets/simple_game.cpp")
 
         self.root.update()
         self.root.mainloop()
@@ -86,9 +86,9 @@ class tkCppEditorNode:
 
     def compile(self, cpp_file, binary_file):
         res = subprocess.run(["g++", "-g3", cpp_file, "-o", binary_file], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        print(res.stdout)
+        print(res.stdout.decode('utf-8'))
         if res.returncode != 0:
-            print(str(res.stderr))
+            print(res.stderr.decode('utf-8'))
             self.test_pub.publish(res.stderr.decode('utf-8'))
             return False
         return True
