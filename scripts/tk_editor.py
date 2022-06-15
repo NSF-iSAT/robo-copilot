@@ -10,6 +10,55 @@ from pprint import pprint
 import rospy
 from std_msgs.msg import String
 
+class TextLineNumbers(Canvas):
+    def __init__(self, *args, **kwargs):
+        Canvas.__init__(self, *args, **kwargs)
+        self.textwidget = None
+
+    def attach(self, text_widget):
+        self.textwidget = text_widget
+        
+    def redraw(self, *args):
+        '''redraw line numbers'''
+        self.delete("all")
+
+        i = self.textwidget.index("@0,0")
+        while True :
+            dline= self.textwidget.dlineinfo(i)
+            if dline is None: break
+            y = dline[1]
+            linenum = str(i).split(".")[0]
+            self.create_text(2,y,anchor="nw", text=linenum, font=("Courier New", 14))
+            i = self.textwidget.index("%s+1line" % i)
+
+class CustomText(Text):
+    def __init__(self, *args, **kwargs):
+        Text.__init__(self, *args, **kwargs)
+
+        # create a proxy for the underlying widget
+        self._orig = self._w + "_orig"
+        self.tk.call("rename", self._w, self._orig)
+        self.tk.createcommand(self._w, self._proxy)
+
+    def _proxy(self, *args):
+        # let the actual widget perform the requested action
+        cmd = (self._orig,) + args
+        result = self.tk.call(cmd)
+
+        # generate an event if something was added or deleted,
+        # or the cursor position changed
+        if (args[0] in ("insert", "replace", "delete") or 
+            args[0:3] == ("mark", "set", "insert") or
+            args[0:2] == ("xview", "moveto") or
+            args[0:2] == ("xview", "scroll") or
+            args[0:2] == ("yview", "moveto") or
+            args[0:2] == ("yview", "scroll")
+        ):
+            self.event_generate("<<Change>>", when="tail")
+
+        # return what the actual widget returned
+        return result      
+
 class tkCppEditorNode:
     def __init__(self):
         self.root = Tk()
@@ -20,7 +69,8 @@ class tkCppEditorNode:
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
 
-        menu_bar = Menu(self.root)
+        self.frame = Frame(self.root, bd=2, relief=SUNKEN)
+        menu_bar = Menu(self.frame)
 
         self.file_name = None
 
@@ -59,16 +109,25 @@ class tkCppEditorNode:
         self.root.config(menu=menu_bar)
 
         # Setting the basic components of the window
-        self.text_area = Text(self.root, font=("Times New Roman", 14))
-        self.text_area.grid(sticky=NSEW)
+        # self.text_area.grid(sticky=NSEW)
 
-        scroller = Scrollbar(self.text_area, orient=VERTICAL)
+        scroller = Scrollbar(self.frame, orient=VERTICAL)
         scroller.pack(side=RIGHT, fill=Y)
+
+        self.text_area = CustomText(self.frame, font=("Courier New", 14))
+        # self.text_area.bind("<KeyPress>", self.keypress_cb)
+        self.linenumbers = TextLineNumbers(self.frame, width=60)
+        self.linenumbers.attach(self.text_area)
+        self.linenumbers.pack(side=LEFT, fill=Y)
+        self.text_area.pack(side=RIGHT, fill=BOTH, expand=1)
 
         scroller.config(command=self.text_area.yview)
         self.text_area.config(yscrollcommand=scroller.set)
-        
-        self.text_area.bind("<KeyPress>", self.keypress_cb)
+
+        self.text_area.bind("<<Change>>", self._on_change)
+        self.text_area.bind("<Configure>", self._on_change)
+
+        self.frame.pack(side=TOP, fill=BOTH, expand=True)
 
         # set up ros bindings
         rospy.init_node('cpp_editor_node')
@@ -76,6 +135,11 @@ class tkCppEditorNode:
         self.test_pub = rospy.Publisher('cpp_editor_node/test', String, queue_size=1)
 
         self.run()
+
+    def _on_change(self, event=None):
+        self.linenumbers.redraw()
+        if event is not None:
+            self.keypress_cb(event)
 
     def run(self):
         self._open_file("/home/kaleb/code/ros_ws/src/robo_copilot/assets/simple_game.cpp")
