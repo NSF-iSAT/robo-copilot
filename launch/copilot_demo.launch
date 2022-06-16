@@ -4,7 +4,6 @@
     <arg name="use_s2t"         default="false"/>
     <arg name="use_tts"         default="false"/>
     <arg name="audio_device"    default="7"/> 
-    <arg name="use_rosbridge"   default="true"/>
 
     <group if="$(arg use_robot)">
         <include file="$(find misty_wrapper)/launch/misty.launch" pass_all_args="true"></include>
@@ -26,12 +25,8 @@
         <node name="google_tts" pkg="robo_copilot" type="google_tts.py" output="screen"/>
     </group>
 
-    <group if="$(arg use_rosbridge)">
-        <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch"></include>
-        <node name="code_listener" pkg="robo_copilot" type="code_listener.py" output="screen">
-            <remap from="/misty/id_0/speech" to="text_to_speech"/>
-        </node>
-    </group>
+    <node name="cpp_editor_node" pkg="robo_copilot" type="tk_editor.py" output="screen"/>
+    <node name="feedback_gen" pkg="robo_copilot" type="feedback_gen.py" output="screen"/>
 
     <!-- <node name="code_listener" pkg="robo_copilot" type="code_listener.py" output="screen"/> -->
 

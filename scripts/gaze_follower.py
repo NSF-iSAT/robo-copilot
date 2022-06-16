@@ -77,9 +77,9 @@ class GazeFollower:
             # elif rospy.Time.now() - self.movement_start > self.idle_timeout :
             #     self.do_idle_motion()
 
-            elif self.listening:
-                # TODO add more interesting things to do when listening
-                self.do_idle_motion()
+            # elif self.listening:
+            #     # TODO add more interesting things to do when listening
+            #     self.do_idle_motion()
 
             rospy.sleep(self.timeout)
     

@@ -1,14 +1,15 @@
+import subprocess
+import os
+
 from tkinter import *
 import tkinter.filedialog as fd
 import tkinter.messagebox as mb
-import subprocess
-import os
-import sys
+
 from pygdbmi.gdbcontroller import GdbController
-from distutils.spawn import find_executable
-from pprint import pprint
+
 import rospy
 from std_msgs.msg import String
+from robo_copilot.msg import Error
 
 class TextLineNumbers(Canvas):
     def __init__(self, *args, **kwargs):
@@ -28,7 +29,7 @@ class TextLineNumbers(Canvas):
             if dline is None: break
             y = dline[1]
             linenum = str(i).split(".")[0]
-            self.create_text(2,y,anchor="nw", text=linenum, font=("Courier New", 14))
+            self.create_text(2,y,anchor="nw", text=linenum, font=("Courier New", 12))
             i = self.textwidget.index("%s+1line" % i)
 
 class CustomText(Text):
@@ -63,7 +64,7 @@ class tkCppEditorNode:
     def __init__(self):
         self.root = Tk()
         self.root.title("TK Editor")
-        self.root.geometry("800x600")
+        self.root.geometry("1200x800")
         self.root.resizable(True, True)
 
         self.root.columnconfigure(0, weight=1)
@@ -114,7 +115,7 @@ class tkCppEditorNode:
         scroller = Scrollbar(self.frame, orient=VERTICAL)
         scroller.pack(side=RIGHT, fill=Y)
 
-        self.text_area = CustomText(self.frame, font=("Courier New", 14))
+        self.text_area = CustomText(self.frame, font=("Courier New", 12))
         # self.text_area.bind("<KeyPress>", self.keypress_cb)
         self.linenumbers = TextLineNumbers(self.frame, width=60)
         self.linenumbers.attach(self.text_area)
@@ -132,7 +133,7 @@ class tkCppEditorNode:
         # set up ros bindings
         rospy.init_node('cpp_editor_node')
         self.code_pub = rospy.Publisher('cpp_editor_node/text', String, queue_size=1)
-        self.test_pub = rospy.Publisher('cpp_editor_node/test', String, queue_size=1)
+        self.test_pub = rospy.Publisher('cpp_editor_node/test', Error, queue_size=1)
 
         self.run()
 
@@ -152,8 +153,12 @@ class tkCppEditorNode:
         res = subprocess.run(["g++", "-g3", cpp_file, "-o", binary_file], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         print(res.stdout.decode('utf-8'))
         if res.returncode != 0:
-            print(res.stderr.decode('utf-8'))
-            self.test_pub.publish(res.stderr.decode('utf-8'))
+            msg = Error()
+            msg.type = msg.COMPILE
+            msg.stderr = res.stderr.decode('utf-8')
+            msg.stdout = ""
+
+            self.test_pub.publish(msg)
             return False
         return True
 
