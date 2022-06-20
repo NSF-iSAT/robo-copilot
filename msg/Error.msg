@@ -4,3 +4,4 @@ int32 COMPILE = 2
 int32 type
 string stderr
 string stdout
+string payload
