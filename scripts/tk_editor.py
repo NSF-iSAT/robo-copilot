@@ -1,6 +1,6 @@
 import subprocess
 import os
-
+from pprint import pprint 
 from tkinter import *
 import tkinter.filedialog as fd
 import tkinter.messagebox as mb
@@ -12,6 +12,7 @@ from std_msgs.msg import String
 from robo_copilot.msg import Error
 
 class TextLineNumbers(Canvas):
+    # module to add line numbers
     def __init__(self, *args, **kwargs):
         Canvas.__init__(self, *args, **kwargs)
         self.textwidget = None
@@ -33,6 +34,7 @@ class TextLineNumbers(Canvas):
             i = self.textwidget.index("%s+1line" % i)
 
 class CustomText(Text):
+    # text widget with event proxy
     def __init__(self, *args, **kwargs):
         Text.__init__(self, *args, **kwargs)
 
@@ -115,7 +117,7 @@ class tkCppEditorNode:
         scroller = Scrollbar(self.frame, orient=VERTICAL)
         scroller.pack(side=RIGHT, fill=Y)
 
-        self.text_area = CustomText(self.frame, font=("Courier New", 12))
+        self.text_area = CustomText(self.frame, font=("Courier New", 12), undo=True)
         # self.text_area.bind("<KeyPress>", self.keypress_cb)
         self.linenumbers = TextLineNumbers(self.frame, width=60)
         self.linenumbers.attach(self.text_area)
@@ -158,6 +160,7 @@ class tkCppEditorNode:
             msg.stderr = res.stderr.decode('utf-8')
             msg.stdout = ""
 
+            print(msg.stderr)
             self.test_pub.publish(msg)
             return False
         return True
@@ -171,7 +174,6 @@ class tkCppEditorNode:
 
     def run_test(self):
         self.save_file()
-        print("Saved to ", self.file_name)
         # compile the file
         cpp_file = self.file_name
         binary_file = os.path.join(
@@ -181,10 +183,42 @@ class tkCppEditorNode:
         if not res:
             return
 
+        # run via gdb
         gdbmi = GdbController()
-        response = gdbmi.write('-file-exec-file ' + binary_file)
-        print(response)
-        self.test_pub.publish(String(str(response)))
+        response = gdbmi.write('-file-exec-and-symbols ' + binary_file)
+        response = gdbmi.write('-exec-run', raise_error_on_timeout=True, timeout=5)
+        gdbmi.exit()
+
+        pprint(response)
+        msg = Error()
+        stdout_str = ""
+        stderr_str = ""
+
+        # parse gdbmi output
+        for item in response:
+            if item["message"] == "thread-group-exited":
+                # check exit code
+                if item["payload"]["exit-code"] == '0':
+                    msg.type = msg.SUCCESS
+                else:
+                    msg.type = msg.RUNTIME
+            elif item["message"] is None and item["stream"] == "stdout":
+                stdout_str += item["payload"]
+            elif item["message"] is None and item["stream"] == "stderr":
+                stderr_str += item["payload"]
+            elif item["message"] == "stopped":
+                msg.payload = str(item["payload"])
+                # sometimes the output doesn't have a thread-group-exited message
+                # with error code for whatever reason, so this works as a backup check
+                if item["payload"]["reason"] == "exited-normally":
+                    msg.type = msg.SUCCESS
+                else:
+                    msg.type = msg.RUNTIME
+
+        # publish & cleanup
+        msg.stdout = stdout_str
+        print(stdout_str)
+        self.test_pub.publish(msg)
         os.remove(binary_file)
 
     def _open_file(self, filename):
@@ -197,7 +231,8 @@ class tkCppEditorNode:
     def open_file(self):
         file = fd.askopenfilename(defaultextension='.cpp', filetypes=[('All Files', '*.*'), ("C++", "*.cpp"), ("Text File", "*.txt*")])
 
-        if file != '':
+        if file:
+            print(file)
             self.root.title(f"{os.path.basename(file)}")
             self.text_area.delete(1.0, END)
             self._open_file(file)
