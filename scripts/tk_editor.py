@@ -186,7 +186,7 @@ class tkCppEditorNode:
         # run via gdb
         gdbmi = GdbController()
         response = gdbmi.write('-file-exec-and-symbols ' + binary_file)
-        response = gdbmi.write('-exec-run', raise_error_on_timeout=True, timeout=5)
+        response = gdbmi.write('-exec-run', raise_error_on_timeout=True, timeout_sec=5.0)
         gdbmi.exit()
 
         pprint(response)

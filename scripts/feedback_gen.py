@@ -3,6 +3,7 @@ from std_msgs.msg import String
 from robo_copilot.msg import Error
 
 import re
+import json
 
 CHARACTER_DICT = {
     ';' : 'semicolon',
@@ -66,19 +67,29 @@ class CopilotFeedback:
                 if char in first_err_msg:
                     first_err_msg = first_err_msg.replace(char, CHARACTER_DICT[char])
                     
-            error_msg = "It looks like on line %s there's an error: %s. Do you know how we can fix that" % (first_line_no, first_err_msg)
+            error_msg = "It looks like on line %s there's an error: %s. Do you know how we can fix that?" % (first_line_no, first_err_msg)
             print(error_msg)
             self.speech_pub.publish(String(error_msg))
             
         elif msg.type == msg.SUCCESS:
             speech = "Looks like it compiled and ran okay! Let's take a look at the output."
-            self.speech_pub.publish(String(speech))
-            speech = "The output is: %s" % msg.stdout
+            speech += " The output is: %s" % msg.stdout[:msg.stdout.index('"')]
             self.speech_pub.publish(String(speech))
 
         elif msg.type == msg.RUNTIME:
             # TODO
-            pass
+            speech = "Looks like it compiled okay, but we hit a runtime error. Let's take a look."
+            # print(msg.payload)
+            k = msg.payload.replace("'", '"')
+            payload_as_dict = json.loads(k)
+            line = payload_as_dict['frame']['line']
+            fn   = payload_as_dict['frame']['func']
+            sig  = payload_as_dict['signal-meaning'] 
+
+            speech += " On line %s in function %s, we got a %s." % (line, fn, sig)
+            # rospy.sleep(5.0)
+            speech += " Maybe we should take a look at that line."
+            self.speech_pub.publish(String(speech))
 
 if __name__ == "__main__":
     CopilotFeedback()

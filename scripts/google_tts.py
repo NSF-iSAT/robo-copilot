@@ -7,10 +7,10 @@ from misty_wrapper.mistyPy import Robot
 
 class MistyGoogleTTS:
     def __init__(self):
-        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/kaleb/Desktop/google-auth.json'
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/kaleb/code/ros_ws/src/ros-speech2text-google-stt-cred.json'
 
-        self.language = 'en-AU'
-        self.voice = 'en-AU-Standard-A'
+        self.language = 'en-US'
+        self.voice = 'en-US-Standard-C'
 
         self.voice_params = tts.VoiceSelectionParams(
             language_code=self.language,
