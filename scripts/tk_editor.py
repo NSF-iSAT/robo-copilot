@@ -1,6 +1,7 @@
 import subprocess
 import os
-from pprint import pprint 
+from pprint import pprint
+from this import d 
 from tkinter import *
 import tkinter.filedialog as fd
 import tkinter.messagebox as mb
@@ -61,6 +62,7 @@ class CustomText(Text):
 
         # return what the actual widget returned
         return result      
+
 
 class tkCppEditorNode:
     def __init__(self):
@@ -138,6 +140,19 @@ class tkCppEditorNode:
         self.test_pub = rospy.Publisher('cpp_editor_node/test', Error, queue_size=1)
 
         self.run()
+
+    def draw_output_window(self):
+        root = Toplevel()
+        self.output_text = Text(root, font=("Courier New", 12))
+        self.output_text.grid(row=1, column=0, columnspan=2)
+        
+        scrollbar = Scrollbar(self.output_text)
+        scrollbar.place(relheight=1, relx=0.974)
+        test_button = Button(root, text="Test", command=self.run_test)
+        test_button.grid(row=2, column=0)
+
+    def output(self, text):
+        self.output_text.insert(END, "\n"+text)
 
     def _on_change(self, event=None):
         self.linenumbers.redraw()

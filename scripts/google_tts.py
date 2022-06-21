@@ -7,7 +7,7 @@ from misty_wrapper.mistyPy import Robot
 
 class MistyGoogleTTS:
     def __init__(self):
-        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/kaleb/code/ros_ws/src/ros-speech2text-google-stt-cred.json'
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/kaleb/code/ros_ws/src/ros_speech2text/ros-speech2text-google-stt-cred.json'
 
         self.language = 'en-US'
         self.voice = 'en-US-Standard-C'
