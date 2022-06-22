@@ -1,7 +1,6 @@
 import subprocess
 import os
 from pprint import pprint
-from this import d 
 from tkinter import *
 import tkinter.filedialog as fd
 import tkinter.messagebox as mb
@@ -63,7 +62,39 @@ class CustomText(Text):
         # return what the actual widget returned
         return result      
 
+class OutputWindow:
+    def __init__(self, test_fn):
+        self.test_count = 0
+        root = Toplevel()
+        root.title("Output")
+        frame = Frame(root, bd=2, relief=SUNKEN)
+        bottomframe = Frame(root, relief=SUNKEN)
 
+        self.text = Text(frame, font=("Courier New", 12), state=DISABLED)
+        self.text.pack(side=LEFT, expand=True, fill=BOTH)
+
+        scrollbar = Scrollbar(frame)
+        scrollbar.pack(side=RIGHT, fill=Y)
+        scrollbar.config(command=self.text.yview)
+        self.text.config(yscrollcommand=scrollbar.set)
+        self.scrollbar=scrollbar
+
+        test_button = Button(bottomframe, text="Test", command=test_fn)
+        test_button.pack(side=LEFT)
+
+        frame.pack(side=TOP, fill=BOTH, expand=True)
+        bottomframe.pack(side=RIGHT, fill=X)
+
+    def place_text(self, new_text):
+        self.test_count += 1
+        prev_yview = self.text.yview()
+
+        self.text["state"] = NORMAL
+        self.text.insert(END, "\n\n***** TEST #{} *****\n\n".format(str(self.test_count)))
+        self.text.insert(END, new_text)
+        self.text["state"] = DISABLED
+
+        self.text.yview_moveto(prev_yview[1])
 class tkCppEditorNode:
     def __init__(self):
         self.root = Tk()
@@ -139,20 +170,9 @@ class tkCppEditorNode:
         self.code_pub = rospy.Publisher('cpp_editor_node/text', String, queue_size=1)
         self.test_pub = rospy.Publisher('cpp_editor_node/test', Error, queue_size=1)
 
+        self.output = OutputWindow(self.run_test)
+
         self.run()
-
-    def draw_output_window(self):
-        root = Toplevel()
-        self.output_text = Text(root, font=("Courier New", 12))
-        self.output_text.grid(row=1, column=0, columnspan=2)
-        
-        scrollbar = Scrollbar(self.output_text)
-        scrollbar.place(relheight=1, relx=0.974)
-        test_button = Button(root, text="Test", command=self.run_test)
-        test_button.grid(row=2, column=0)
-
-    def output(self, text):
-        self.output_text.insert(END, "\n"+text)
 
     def _on_change(self, event=None):
         self.linenumbers.redraw()
@@ -175,7 +195,8 @@ class tkCppEditorNode:
             msg.stderr = res.stderr.decode('utf-8')
             msg.stdout = ""
 
-            print(msg.stderr)
+            # print(msg.stderr)
+            self.output.place_text(msg.stderr)
             self.test_pub.publish(msg)
             return False
         return True
@@ -232,7 +253,8 @@ class tkCppEditorNode:
 
         # publish & cleanup
         msg.stdout = stdout_str
-        print(stdout_str)
+        # print(stdout_str)
+        self.output.place_text(stdout_str)
         self.test_pub.publish(msg)
         os.remove(binary_file)
 
