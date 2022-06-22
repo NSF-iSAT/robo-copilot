@@ -11,6 +11,8 @@ import rospy
 from std_msgs.msg import String
 from robo_copilot.msg import Error
 
+import pexpect
+
 class TextLineNumbers(Canvas):
     # module to add line numbers
     def __init__(self, *args, **kwargs):
@@ -63,10 +65,11 @@ class CustomText(Text):
         return result      
 
 class OutputWindow:
-    def __init__(self, test_fn):
+    def __init__(self, root, test_fn):
         self.test_count = 0
-        root = Toplevel()
+        # root = root
         root.title("Output")
+        root.resizable(True, True)
         frame = Frame(root, bd=2, relief=SUNKEN)
         bottomframe = Frame(root, relief=SUNKEN)
 
@@ -95,9 +98,12 @@ class OutputWindow:
         self.text["state"] = DISABLED
 
         self.text.yview_moveto(prev_yview[1])
-class tkCppEditorNode:
-    def __init__(self):
-        self.root = Tk()
+
+class EditorWindow:
+    def __init__(self, root, edit_cb):
+        self.external_bindings = {}
+
+        self.root = root
         self.root.title("TK Editor")
         self.root.geometry("1200x800")
         self.root.resizable(True, True)
@@ -116,7 +122,6 @@ class tkCppEditorNode:
         file_menu.add_command(label="New", command=self.open_new_file)
         file_menu.add_command(label="Open File", command=self.open_file)
         file_menu.add_command(label="Save As", command=self.save_file)
-        file_menu.add_command(label='Test', command=self.run_test)
         file_menu.add_separator()
         file_menu.add_command(label="Close File", command=self.exit_application)
 
@@ -134,24 +139,12 @@ class tkCppEditorNode:
 
         menu_bar.add_cascade(label="Edit", menu=edit_menu)
 
-        # Adding the Help Menu and its components
-        help_menu = Menu(menu_bar, tearoff=False, activebackground='DodgerBlue')
-
-        help_menu.add_command(label='About Notepad', command=self.about_notepad)
-        help_menu.add_command(label='About Commands', command=self.about_commands)
-
-        menu_bar.add_cascade(label="Help", menu=help_menu)
-
         self.root.config(menu=menu_bar)
-
-        # Setting the basic components of the window
-        # self.text_area.grid(sticky=NSEW)
 
         scroller = Scrollbar(self.frame, orient=VERTICAL)
         scroller.pack(side=RIGHT, fill=Y)
 
         self.text_area = CustomText(self.frame, font=("Courier New", 12), undo=True)
-        # self.text_area.bind("<KeyPress>", self.keypress_cb)
         self.linenumbers = TextLineNumbers(self.frame, width=60)
         self.linenumbers.attach(self.text_area)
         self.linenumbers.pack(side=LEFT, fill=Y)
@@ -160,103 +153,17 @@ class tkCppEditorNode:
         scroller.config(command=self.text_area.yview)
         self.text_area.config(yscrollcommand=scroller.set)
 
+        self.text_area.bind("<KeyPress>", edit_cb)
         self.text_area.bind("<<Change>>", self._on_change)
         self.text_area.bind("<Configure>", self._on_change)
 
         self.frame.pack(side=TOP, fill=BOTH, expand=True)
 
-        # set up ros bindings
-        rospy.init_node('cpp_editor_node')
-        self.code_pub = rospy.Publisher('cpp_editor_node/text', String, queue_size=1)
-        self.test_pub = rospy.Publisher('cpp_editor_node/test', Error, queue_size=1)
-
-        self.output = OutputWindow(self.run_test)
-
-        self.run()
-
     def _on_change(self, event=None):
         self.linenumbers.redraw()
-        if event is not None:
-            self.keypress_cb(event)
 
-    def run(self):
-        self._open_file("/home/kaleb/code/ros_ws/src/robo_copilot/assets/simple_game.cpp")
-
-        self.root.update()
-        self.root.mainloop()
-        self.root.quit()
-
-    def compile(self, cpp_file, binary_file):
-        res = subprocess.run(["g++", "-g3", cpp_file, "-o", binary_file], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        print(res.stdout.decode('utf-8'))
-        if res.returncode != 0:
-            msg = Error()
-            msg.type = msg.COMPILE
-            msg.stderr = res.stderr.decode('utf-8')
-            msg.stdout = ""
-
-            # print(msg.stderr)
-            self.output.place_text(msg.stderr)
-            self.test_pub.publish(msg)
-            return False
-        return True
-
-    def get_code(self):
+    def get_contents(self):
         return self.text_area.get(1.0, END)
-
-    def keypress_cb(self, key):
-        self.current_text = self.text_area.get(1.0, END)
-        self.code_pub.publish(self.current_text)
-
-    def run_test(self):
-        self.save_file()
-        # compile the file
-        cpp_file = self.file_name
-        binary_file = os.path.join(
-            os.path.dirname(self.file_name), "tmp.out"
-        )
-        res = self.compile(cpp_file, binary_file)
-        if not res:
-            return
-
-        # run via gdb
-        gdbmi = GdbController()
-        response = gdbmi.write('-file-exec-and-symbols ' + binary_file)
-        response = gdbmi.write('-exec-run', raise_error_on_timeout=True, timeout_sec=5.0)
-        gdbmi.exit()
-
-        pprint(response)
-        msg = Error()
-        stdout_str = ""
-        stderr_str = ""
-
-        # parse gdbmi output
-        for item in response:
-            if item["message"] == "thread-group-exited":
-                # check exit code
-                if item["payload"]["exit-code"] == '0':
-                    msg.type = msg.SUCCESS
-                else:
-                    msg.type = msg.RUNTIME
-            elif item["message"] is None and item["stream"] == "stdout":
-                stdout_str += item["payload"]
-            elif item["message"] is None and item["stream"] == "stderr":
-                stderr_str += item["payload"]
-            elif item["message"] == "stopped":
-                msg.payload = str(item["payload"])
-                # sometimes the output doesn't have a thread-group-exited message
-                # with error code for whatever reason, so this works as a backup check
-                if item["payload"]["reason"] == "exited-normally":
-                    msg.type = msg.SUCCESS
-                else:
-                    msg.type = msg.RUNTIME
-
-        # publish & cleanup
-        msg.stdout = stdout_str
-        # print(stdout_str)
-        self.output.place_text(stdout_str)
-        self.test_pub.publish(msg)
-        os.remove(binary_file)
 
     def _open_file(self, filename):
         with open(filename, "r") as file:
@@ -277,7 +184,7 @@ class tkCppEditorNode:
             file = None
 
     def open_new_file(self):
-        self.root.title("Untitled - Notepad")
+        self.root.title("Untitled - Editor")
         self.text_area.delete(1.0, END)
 
     def save_file_as(self):
@@ -316,25 +223,95 @@ class tkCppEditorNode:
     def delete_last_char(self):
         self.text_area.event_generate("<<KP_Delete>>")
 
-    def about_notepad(self):
-        mb.showinfo("About Notepad", "This is just another Notepad, but this is better than all others")
+class CppEditorNode:
+    def __init__(self):            
+        # set up ros bindings
+        rospy.init_node('cpp_editor_node')
+        self.code_pub = rospy.Publisher('cpp_editor_node/text', String, queue_size=1)
+        self.test_pub = rospy.Publisher('cpp_editor_node/test', Error, queue_size=1)
 
-    def about_commands(self):
-        commands = """
-            Under the File Menu:
-            - 'New' clears the entire Text Area
-            - 'Open' clears text and opens another file
-            - 'Save As' saves your file in the same / another extension
+        self.tk     = Tk()
+        self.editor = EditorWindow(self.tk, self.edit_cb)
+        self.output = OutputWindow(Toplevel(), self.run_test)
+        
+        self.editor._open_file("/home/kaleb/code/ros_ws/src/robo_copilot/assets/test1.cpp")
 
-            Under the Edit Menu:
-            - 'Copy' copies the selected text to your clipboard
-            - 'Cut' cuts the selected text and removes it from the text area
-            - 'Paste' pastes the copied/cut text
-            - 'Select All' selects the entire text
-            - 'Delete' deletes the last character 
-            """
+        while not rospy.is_shutdown():
+            try:
+                self.tk.update()
+            except:
+                break
+        self.tk.quit()
 
-        mb.showinfo(title="All commands", message=commands, width=60, height=40)
+    def edit_cb(self, event=None):
+        self.code_pub.publish(self.editor.get_contents())
 
+    def compile(self, cpp_file, binary_file):
+        res = subprocess.run(["g++", "-g3", cpp_file, "-o", binary_file], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        print(res.stdout.decode('utf-8'))
+        if res.returncode != 0:
+            return (False, res.stderr.decode('utf-8'))
+        return (True, "")
+
+    def run_test(self):
+        self.editor.save_file()
+        msg = Error()
+        
+        cpp_file = self.editor.file_name
+        binary_file = os.path.join(
+            os.path.dirname(self.editor.file_name), "tmp.out"
+        )
+        
+        result, err = self.compile(cpp_file, binary_file)
+        if not result:
+            # failed to compile
+            msg.type = msg.COMPILE
+            msg.stderr = err
+            msg.stdout = ""
+            self.test_pub.publish(msg)
+            self.output.place_text(err)
+            return
+
+        # compiled successfully, now try to run via gdb
+            
+        # run via gdb
+        gdbmi = GdbController()
+        response = gdbmi.write('-file-exec-and-symbols ' + binary_file)
+        response = gdbmi.write('-exec-run', raise_error_on_timeout=True, timeout_sec=5.0)
+        gdbmi.exit()
+
+        pprint(response)
+        msg = Error()
+        stdout_str = ""
+        stderr_str = ""
+
+        # parse gdbmi output
+        for item in response:
+            if item["message"] == "thread-group-exited":
+                # check exit code
+                if item["payload"]["exit-code"] == '0':
+                    msg.type = msg.SUCCESS
+                else:
+                    msg.type = msg.RUNTIME
+            elif item["message"] is None and item["stream"] == "stdout":
+                stdout_str += item["payload"]
+            elif item["message"] is None and item["stream"] == "stderr":
+                stderr_str += item["payload"]
+            elif item["message"] == "stopped":
+                msg.payload = str(item["payload"])
+                # sometimes the output doesn't have a thread-group-exited message
+                # with error code for whatever reason, so this works as a backup check
+                if item["payload"]["reason"] == "exited-normally":
+                    msg.type = msg.SUCCESS
+                else:
+                    msg.type = msg.RUNTIME
+
+        # publish & cleanup
+        msg.stdout = stdout_str
+        # print(stdout_str)
+        self.output.place_text(stdout_str)
+        self.test_pub.publish(msg)
+        os.remove(binary_file)
+    
 if __name__ == "__main__":
-    tkCppEditorNode()
+    CppEditorNode()
