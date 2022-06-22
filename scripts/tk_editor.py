@@ -11,7 +11,7 @@ import rospy
 from std_msgs.msg import String
 from robo_copilot.msg import Error
 
-import pexpect
+# import pexpect
 
 class TextLineNumbers(Canvas):
     # module to add line numbers
@@ -65,11 +65,15 @@ class CustomText(Text):
         return result      
 
 class OutputWindow:
-    def __init__(self, root, test_fn):
+    def __init__(self, root, input_cb, test_fn):
+        self.main_input_cb = input_cb
         self.test_count = 0
         # root = root
         root.title("Output")
         root.resizable(True, True)
+        root.columnconfigure(0, weight=1)
+        root.rowconfigure(0, weight=1)
+
         frame = Frame(root, bd=2, relief=SUNKEN)
         bottomframe = Frame(root, relief=SUNKEN)
 
@@ -83,17 +87,26 @@ class OutputWindow:
         self.scrollbar=scrollbar
 
         test_button = Button(bottomframe, text="Test", command=test_fn)
-        test_button.pack(side=LEFT)
+        test_button.pack(side=RIGHT)
+
+        self.entry_field = Entry(bottomframe, font=("Courier New", 12))
+        self.entry_field.bind("<Return>", self.input_cb)
+        self.entry_field.pack(side=LEFT, fill=X)
 
         frame.pack(side=TOP, fill=BOTH, expand=True)
-        bottomframe.pack(side=RIGHT, fill=X)
+        bottomframe.pack(side=BOTTOM, fill=X)
+
+    def input_cb(self, event=None):
+        line = self.entry_field.get()
+        self.entry_field.delete(0, END)
+        self.main_input_cb(line)
 
     def place_text(self, new_text):
-        self.test_count += 1
+        # self.test_count += 1
         prev_yview = self.text.yview()
 
         self.text["state"] = NORMAL
-        self.text.insert(END, "\n\n***** TEST #{} *****\n\n".format(str(self.test_count)))
+        # self.text.insert(END, "\n\n***** TEST #{} *****\n\n".format(str(self.test_count)))
         self.text.insert(END, new_text)
         self.text["state"] = DISABLED
 
@@ -232,8 +245,9 @@ class CppEditorNode:
 
         self.tk     = Tk()
         self.editor = EditorWindow(self.tk, self.edit_cb)
-        self.output = OutputWindow(Toplevel(), self.run_test)
-        
+        self.output = OutputWindow(Toplevel(), print, self.run_test)
+        self.test_count = 0
+
         self.editor._open_file("/home/kaleb/code/ros_ws/src/robo_copilot/assets/test1.cpp")
 
         while not rospy.is_shutdown():
@@ -256,6 +270,7 @@ class CppEditorNode:
     def run_test(self):
         self.editor.save_file()
         msg = Error()
+        self.test_count += 1
         
         cpp_file = self.editor.file_name
         binary_file = os.path.join(
@@ -277,9 +292,9 @@ class CppEditorNode:
         # run via gdb
         gdbmi = GdbController()
         response = gdbmi.write('-file-exec-and-symbols ' + binary_file)
-        response = gdbmi.write('-exec-run', raise_error_on_timeout=True, timeout_sec=5.0)
-        gdbmi.exit()
+        response = gdbmi.write('-exec-run')
 
+        # gdbmi.exit()
         pprint(response)
         msg = Error()
         stdout_str = ""
