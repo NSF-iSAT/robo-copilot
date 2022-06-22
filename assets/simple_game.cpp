@@ -1,134 +1,133 @@
 #include <iostream>
+#include <cstdlib>
 using namespace std;
 
 class Player {
     private:
-        string name;
         int health;
-        int money;
-    
+        int level;
+        string name;
+
     public:
-        Player(string player_name, int player_health, int player_money) {
+        Player(int starting_health, int starting_level, string player_name) {
+            health = starting_health;
+            level = starting_level;
             name = player_name;
-            health = player_health;
-            money = player_money;
         }
 
-        string get_name() {
-            return name;
-        }
-        int get_health() {
-            return health; 
-        }
-        int get_money() {
-            return money;
-        }
-
-        void set_health(int new_health) {
+        void setHealth(int new_health) {
             health = new_health;
         }
-        void set_money(int new_money) {
-            money = new_money;
+        void levelUp() {
+            level += 1;
+        }
+
+        int getHealth() {
+            return health;
+        }
+        int getLevel() {
+            return level;
+        }
+        string getName() {
+            return name;
         }
 };
 
-class GameState {
+class Enemy {
     private:
-        int current_room;
-        int max_rooms;
-        int player_power;
+        string name;
+        int health;
+        int power;
     public:
-        GameState(int current_room, int max_rooms, int player_power) {
-            this->current_room = current_room;
-            this->max_rooms = max_rooms;
-            this->player_power = player_power;
+        Enemy(int enemy_health, int enemy_power, string enemy_name) {
+            health = enemy_health;
+            power = enemy_power;
+            name = enemy_name;
         }
-        int get_current_room() {
-            return current_room;
+        void setHealth(int new_health) {
+            health = new_health;
         }
-        int get_max_rooms() {
-            return max_rooms;
+        
+        int getHealth() {
+            return health;
         }
-        int get_player_power() {
-            return player_power;
+        int getPower() {
+            return power;
         }
-        void set_current_room(int new_room) {
-            current_room = new_room;
+        string getName() {
+            return name;
         }
-        void set_player_power(int new_power) {
-            player_power = new_power;
-        }
+};
+
+int rollDice(int sides) {
+    return rand() % sides + 1;
 }
 
-int fightEnemy(Player player, int enemy_power) {
-    int player_attack = rand() % player.get_health();
+bool fightEnemy(Player player, Enemy enemy) {
+    cout << "Enemy fight start!" << endl;
+    cout << player.getName() << " VS. " << enemy.getName() << endl;
+    
+    bool still_playing = true;
+    char menu_choice;
+    int damage;
+    int dice_roll;
 
-    if (player_attack > enemy_power) {
-        cout << "You won the fight!" << endl;
-        return true;
-    } else {
+    do {
+        cout << "// Turn start!" << endl;
+        cout << "// Your HP: " << player.getHealth() << endl;
+        cout << "// Enemy HP: " << enemy.getHealth() << endl;
+        cout << "Do you (A) Attack or (B) Run Away?" << endl;
+        cin >> menu_choice;
+
+        if(menu_choice == 'A' || menu_choice == 'a') {
+            // Player chooses to attack!
+            damage = rand() % player.getLevel();
+            cout << "You attack, dealing " << damage << " points of damage!" << endl;
+
+            enemy.setHealth(enemy.getHealth() - damage);
+        } else {
+            // Player chooses to run away!
+            // Roll a dice to see if you get away safely...
+            dice_roll = rollDice(5);
+            // There is a 1 in 5 chance you don't get away safely
+            if (dice_roll == 1) {
+                cout << "You couldn't get away!" << endl;
+            } else {
+                cout << "You escaped!" << endl;
+                return true;
+            }
+        }
+
+        if(enemy.getHealth() > 0) {
+            // If enemy is still alive, it attacks
+            damage = rand() % enemy.getPower();
+            cout << "The enemy attacks you, dealing " << damage << " points of damage!" << endl;
+            player.setHealth(player.getHealth() - damage);
+        } else {
+            // Enemy defeated!
+            cout << "Success! You defeated the enemy. You leveled up." << endl;
+            player.levelUp();
+            cout << "You are now level " << player.getLevel() << endl;
+        }
+
+    } while (player.getHealth() > 0 && enemy.getHealth() > 0);
+
+    if (player.getHealth() <= 0) {
+        cout << "GAME OVER" << endl;
+        cout << "You died :(" << endl;
+        cout << "You made it to level: " << player.getLevel() << endl;
         return false;
+    } else {
+        // Player survived the encounter
+        return true;
     }
 }
 
-void shopMenu(Player player, GameState game_state) {
-    cout << "Welcome to the shop!" << endl;
-    cout << "You have $" << player.get_money() << "." << endl;
-    cout << "What would you like to do?" << endl;
-    cout << "1. Buy health" << endl;
-    cout << "2. Buy power" << endl;
-    cout << "3. Buy armor" << endl;
-    cout << "4. Buy a weapon" << endl;
-    cout << "5. Leave" << endl;
-    int choice;
-    cin >> choice;
-    switch (choice) {
-        case 1:
-            if (player.get_money() >= 10) {
-                player.set_money(player.get_money() - 10);
-                player.set_health(player.get_health() + 10);
-                cout << "You bought health for $10." << endl;
-            } else {
-                cout << "You don't have enough money." << endl;
-            }
-            break;
-        case 2:
-            if (player.get_money() >= 10) {
-                player.set_money(player.get_money() - 10);
-                game_state.set_power(game_state.get_power() + 10);
-                cout << "You bought power for $10." << endl;
-            } else {
-                cout << "You don't have enough money." << endl;
-            }
-            break;
-        case 3:
-            if (player.get_money() >= 10) {
-                player.set_money(player.get_money() - 10);
-                game_state.set_armor(game_state.get_armor() + 10);
-                cout << "You bought armor for $10." << endl;
-            } else {
-                cout << "You don't have enough money." << endl;
-            }
-            break;
-        case 4:
-            if (player.get_money() >= 10) {
-                player.set_money(player.get_money() - 10);
-                game_state.set_weapon(game_state.get_weapon() + 10);
-            } else {
-                cout << "You don't have enough money." << endl;
-            }
-    }
-}
+int main() {
+    Player player1 (100, 10, "Misty");
+    Enemy enemy1 (20, 20, "Sniper");
 
-int main()
-{
-    cout << "Hello, World!" << endl;
+    fightEnemy(player1, enemy1);
+
     return 0;
 }
-
-
-
-
-
-
-
