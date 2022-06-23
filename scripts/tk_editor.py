@@ -65,10 +65,12 @@ class CustomText(Text):
         return result      
 
 class OutputWindow:
-    def __init__(self, root, input_cb, test_fn):
-        self.main_input_cb = input_cb
-        self.test_count = 0
-        # root = root
+    """ Module to draw an output display window, plus text entry and a test button.
+        Inputs:
+            root : the tkinter root (a Tk() instance)
+            test_fn  : a funciton to be triggered when user presses the "Test" button.
+    """
+    def __init__(self, root, test_fn):
         root.title("Output")
         root.resizable(True, True)
         root.columnconfigure(0, weight=1)
@@ -96,23 +98,34 @@ class OutputWindow:
         frame.pack(side=TOP, fill=BOTH, expand=True)
         bottomframe.pack(side=BOTTOM, fill=X)
 
+        self.input_buffer = []
+
     def input_cb(self, event=None):
         line = self.entry_field.get()
+        self.input_buffer.append(line)
         self.entry_field.delete(0, END)
-        self.main_input_cb(line)
+
+    def read_input(self):
+        if not self.input_buffer:
+            return ""
+        return self.input_buffer.pop(0)
 
     def place_text(self, new_text):
         # self.test_count += 1
         prev_yview = self.text.yview()
 
         self.text["state"] = NORMAL
-        # self.text.insert(END, "\n\n***** TEST #{} *****\n\n".format(str(self.test_count)))
-        self.text.insert(END, new_text)
+        self.text.insert(END, new_text + "\n")
         self.text["state"] = DISABLED
 
         self.text.yview_moveto(prev_yview[1])
 
 class EditorWindow:
+    """ Module to draw the code editor window, with line numbers.
+        Inputs:
+            root: the tkinter root (a Tk() instance)
+            edit_cb : a function be triggered when user makes changes.
+    """
     def __init__(self, root, edit_cb):
         self.external_bindings = {}
 
@@ -245,7 +258,7 @@ class CppEditorNode:
 
         self.tk     = Tk()
         self.editor = EditorWindow(self.tk, self.edit_cb)
-        self.output = OutputWindow(Toplevel(), print, self.run_test)
+        self.output = OutputWindow(Toplevel(), self.run_test)
         self.test_count = 0
 
         self.editor._open_file("/home/kaleb/code/ros_ws/src/robo_copilot/assets/test1.cpp")
@@ -297,35 +310,44 @@ class CppEditorNode:
         # gdbmi.exit()
         pprint(response)
         msg = Error()
-        stdout_str = ""
-        stderr_str = ""
+        program_output = ""
+        gdb_output = ""
 
-        # parse gdbmi output
-        for item in response:
-            if item["message"] == "thread-group-exited":
-                # check exit code
-                if item["payload"]["exit-code"] == '0':
-                    msg.type = msg.SUCCESS
-                else:
-                    msg.type = msg.RUNTIME
-            elif item["message"] is None and item["stream"] == "stdout":
-                stdout_str += item["payload"]
-            elif item["message"] is None and item["stream"] == "stderr":
-                stderr_str += item["payload"]
-            elif item["message"] == "stopped":
-                msg.payload = str(item["payload"])
-                # sometimes the output doesn't have a thread-group-exited message
-                # with error code for whatever reason, so this works as a backup check
-                if item["payload"]["reason"] == "exited-normally":
-                    msg.type = msg.SUCCESS
-                else:
-                    msg.type = msg.RUNTIME
+        running = True
+
+        while (running):
+            # parse gdbmi output
+            for item in response:
+                if item["type"] == "output":
+                    program_output += item["payload"]
+                    self.output.place_text(item["payload"])
+
+                elif item["type"] == "console":
+                    gdb_output += item["payload"]
+                    self.output.place_text("\nDEBUG: " + item["payload"])
+
+                elif item["message"] == "stopped":
+                    running = False
+                    if item["payload"]["reason"] == "exited-normally":
+                        msg.type = msg.SUCCESS
+                    else:
+                        msg.type = msg.RUNTIME
+                        msg.payload = item["payload"]
+            response = []
+            if running:
+                # program is, presumably, waiting for user input
+                user_input       = self.output.read_input()
+                if not user_input:
+                    continue
+                self.output.place_text("> " + user_input)
+                response         = gdbmi.write(user_input)
 
         # publish & cleanup
-        msg.stdout = stdout_str
-        # print(stdout_str)
-        self.output.place_text(stdout_str)
-        self.test_pub.publish(msg)
+        gdbmi.exit()
+        msg.stdout = program_output
+        msg.stderr = gdb_output
+        
+        # self.test_pub.publish(msg)
         os.remove(binary_file)
     
 if __name__ == "__main__":
