@@ -161,7 +161,6 @@ include_directories(
 catkin_install_python(PROGRAMS
   # scripts/code_listener.py
   scripts/gaze_follower.py
-  scripts/google_tts.py
   scripts/tk_editor.py
   scripts/feedback_gen.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

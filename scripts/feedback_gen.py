@@ -63,9 +63,9 @@ class CopilotFeedback:
         self.face_pub   = rospy.Publisher("/misty/id_0/face_img", String, queue_size=1)
 
         startup_msg = """
-            Hi there! I'm Misty. I'm trying to debug this C plus plus program I found to make
-            an interactive game. It has a lot of problems and I'm not very good at programming.
-            Could we work on it together?
+            Hi there! I'm Misty. <s>I'm trying to debug this C plus plus program I found to make
+            an interactive game.</s> <s>It has a lot of problems and I'm not very good at programming.</s>
+            <s>Could we work on it together?</s>
             """
         rospy.sleep(6.0)
         self.face_pub.publish(String("e_Joy.jpg"))
