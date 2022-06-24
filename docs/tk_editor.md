@@ -200,12 +200,9 @@ In addition to the editor window, I wanted my program to launch a separate windo
 		""" Module to draw an output display window, plus text entry and a test button.
 			Inputs:
 				root : the tkinter root (a Tk() instance)
-				input_cb : a function to be triggered when user submits text via the entry box
 				test_fn  : a funciton to be triggered when user presses the "Test" button.
 		"""
-		def __init__(self, root, input_cb, test_fn):
-			self.main_input_cb = input_cb
-
+		def __init__(self, root, test_fn):
 			root.title("Output")
 			root.resizable(True, True)
 			root.columnconfigure(0, weight=1)
@@ -214,7 +211,6 @@ In addition to the editor window, I wanted my program to launch a separate windo
 			frame = Frame(root, bd=2, relief=SUNKEN)
 			bottomframe = Frame(root, relief=SUNKEN)
 
-			# making this text module DISABLED means the user can't edit it -- it's just a display
 			self.text = Text(frame, font=("Courier New", 12), state=DISABLED)
 			self.text.pack(side=LEFT, expand=True, fill=BOTH)
 
@@ -227,28 +223,40 @@ In addition to the editor window, I wanted my program to launch a separate windo
 			test_button = Button(bottomframe, text="Test", command=test_fn)
 			test_button.pack(side=RIGHT)
 
-			self.entry_field = Entry(bottomframe, font=("Courier New", 12))
-			self.entry_field.bind("<Return>", self.input_cb)
+			self.user_input = StringVar()
+			self.last_input = None
+			self.entry_field = Entry(bottomframe, font=("Courier New", 12), textvariable = self.user_input)
+			self.entry_field.bind("<Return>", self._get_input)
 			self.entry_field.pack(side=LEFT, fill=X)
 
 			frame.pack(side=TOP, fill=BOTH, expand=True)
 			bottomframe.pack(side=BOTTOM, fill=X)
 
-		def input_cb(self, event=None):
-			line = self.entry_field.get()
+		def _get_input(self, event=None):
+			user_input = self.user_input.get()
 			self.entry_field.delete(0, END)
-			self.main_input_cb(line)
+			self.place_text(user_input)
+			if not user_input:
+				self.last_input = None
+			else:
+				self.last_input = user_input
+
+		def get_input(self):
+			line = self.last_input
+			self.last_input = None
+			return line
 
 		def place_text(self, new_text):
+			# self.test_count += 1
 			prev_yview = self.text.yview()
 
 			self.text["state"] = NORMAL
-			self.text.insert(END, new_text)
+			self.text.insert(END, new_text + "\n")
 			self.text["state"] = DISABLED
 
-			self.text.yview_moveto(prev_yview[1]) # move scrollbar to top of new text
+			self.text.yview_moveto(prev_yview[1])
 
-Once I got it running and displayed some sample text, it looks like this:
+Note that I'm not doing anything with the input text from the Entry box yet -- just storing it in an attribute, where it can be retrieved later via `get_input`. Once I got the above running and displayed some sample text, it looks like this:
 
 ![Output window image](/docs/assets/output_window.png)
 
@@ -276,4 +284,101 @@ Running the compiled program can be more difficult. I started by using a fairly 
 	response = gdbmi.write('-exec-run')
 While this gives me the output that I'll need to update the output window display, I also want to be able to communicate with the program while it's running via text entry. In addition, I want to parse the `response` object (a list of dicts) to separate GDB's error messages from the program's intended output.
 
+To implement all this, I wrote a class that launches the Editor and Output windows, and implements compilation, testing, and interactivity with programs. The `run_test` function is passed into the Output window to be triggered when the user presses "Test".
 
+	class CppEditorNode:
+		def __init__(self):            
+			tk     = Tk()
+			self.editor = EditorWindow(tk, self.edit_cb)
+			self.output = OutputWindow(Toplevel(), self.run_test)
+			self.test_count = 0
+
+			self.editor._open_file("/home/kaleb/code/ros_ws/src/robo_copilot/assets/test1.cpp")
+
+			self.in_debug = False
+			self.gdbmi    = None
+
+			while True:
+				try:
+					if self.in_debug:
+						self.monitor_test(self.gdbmi)
+					self.tk.update()
+				except:
+					break
+			tk.quit()
+
+		def compile(self, cpp_file, binary_file):
+			res = subprocess.run(["g++", "-g3", cpp_file, "-o", binary_file], check=False, stdout=subprocess.	PIPE, stderr=subprocess.PIPE)
+
+			if res.returncode != 0:
+				return (False, res.stderr.decode('utf-8'))
+			return (True, "")
+
+		def run_test(self):
+			if self.in_debug:
+				return
+			self.editor.save_file()
+			self.test_count += 1
+			
+			cpp_file = self.editor.file_name
+			binary_file = os.path.join(
+				os.path.dirname(self.editor.file_name), "tmp.out"
+			)
+			
+			result, err = self.compile(cpp_file, binary_file)
+			if not result:
+				# failed to compile
+				msg.type = msg.COMPILE
+				msg.stderr = err
+				msg.stdout = ""
+				self.test_pub.publish(msg)
+				self.output.place_text(err)
+				return
+
+			# compiled successfully, now run via gdb
+			self.gdbmi = gdbmi = GdbController()
+			response = gdbmi.write('-file-exec-and-symbols ' + binary_file)
+			response = gdbmi.write('-exec-run')\
+			
+			if self.process_gdb_response(response):
+				self.in_debug = True
+			else:
+				self.in_debug = False
+				self.gdbmi = None
+				gdbmi.exit()
+
+		def process_gdb_response(self, response):
+			""" Parse and appropriately output gdb data from param response.
+				@return: True if gdb process is still running, else False
+			"""
+			msg = Error()
+			program_output = ""
+			gdb_output = ""
+			for item in response:
+				if item["type"] == "output":
+					program_output += item["payload"]
+					self.output.place_text(item["payload"])
+
+				elif item["type"] == "console":
+					gdb_output += item["payload"]
+					self.output.place_text("\nDEBUG: " + item["payload"])
+
+				elif item["message"] == "stopped":
+					if item["payload"]["reason"] == "exited-normally":
+						msg.type = msg.SUCCESS
+					else:
+						msg.type = msg.RUNTIME
+						msg.payload = item["payload"]
+					return False
+			# program is presumably waiting for user input
+			return True
+			
+		def monitor_test(self, gdbmi):
+			# check for input
+			user_input = self.output.get_input()
+			if user_input is None:
+				return
+			response = gdbmi.write(user_input, raise_error_on_timeout=False)
+			# parse new response, and see if program is still running
+			self.in_debug = self.process_gdb_response(response)
+		

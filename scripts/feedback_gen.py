@@ -1,6 +1,6 @@
 import rospy
 from std_msgs.msg import String
-from robo_copilot.msg import Error
+from robo_copilot.msg import Debug
 
 import random
 import re
@@ -59,8 +59,21 @@ class CopilotFeedback:
 
         rospy.init_node("feedback_gen", anonymous=True)
         # subscribers
-        rospy.Subscriber("/cpp_editor_node/test", Error, self.test_cb)
-        self.speech_pub = rospy.Publisher("/text_to_speech", String, queue_size=2)
+        self.speech_pub = rospy.Publisher("/text_to_speech",  String, queue_size=2)
+        self.face_pub   = rospy.Publisher("/misty/id_0/face_img", String, queue_size=1)
+
+        startup_msg = """
+            Hi there! I'm Misty. I'm trying to debug this C plus plus program I found to make
+            an interactive game. It has a lot of problems and I'm not very good at programming.
+            Could we work on it together?
+            """
+        rospy.sleep(6.0)
+        self.face_pub.publish(String("e_Joy.jpg"))
+        self.speech_pub.publish(startup_msg)
+        rospy.sleep(6.0)
+        self.face_pub.publish(String("e_DefaultContent.jpg"))
+
+        rospy.Subscriber("/cpp_editor_node/test", Debug, self.test_cb)
         rospy.spin()
 
     def test_cb(self, msg):
@@ -69,7 +82,7 @@ class CopilotFeedback:
             # print(msg.data)
             error_msg = random.choice(COMPILATION_ERROR_POOL)
 
-            p = re.compile(".*simple_game.cpp:(\d*):\d*: error: (.*)")
+            p = re.compile(".cpp:(\d*):\d*: error: (.*)")
             it = p.finditer(msg.stderr)
             self.speech_pub.publish(String(error_msg))
             
@@ -105,6 +118,9 @@ class CopilotFeedback:
             speech += " On line %s in function %s, we got a %s." % (line, fn, sig)
             speech += " I'm not sure why. What do you think?"
             self.speech_pub.publish(String(speech))
+            self.face_pub.publish(String("e_ApprehensionConcerned.jpg"))
+            rospy.sleep(3.0)
+            self.face_pub.publish(String("e_DefaultContent.jpg"))
 
 if __name__ == "__main__":
     CopilotFeedback()

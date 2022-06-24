@@ -9,7 +9,7 @@ from pygdbmi.gdbcontroller import GdbController
 
 import rospy
 from std_msgs.msg import String
-from robo_copilot.msg import Error
+from robo_copilot.msg import Debug
 
 # import pexpect
 
@@ -258,7 +258,7 @@ class CppEditorNode:
         # set up ros bindings
         rospy.init_node('cpp_editor_node')
         self.code_pub = rospy.Publisher('cpp_editor_node/text', String, queue_size=1)
-        self.test_pub = rospy.Publisher('cpp_editor_node/test', Error, queue_size=1)
+        self.test_pub = rospy.Publisher('cpp_editor_node/test', Debug, queue_size=1)
 
         self.tk     = Tk()
         self.editor = EditorWindow(self.tk, self.edit_cb)
@@ -291,9 +291,8 @@ class CppEditorNode:
 
     def run_test(self):
         if self.in_debug:
-            return
+            self.gdbmi.exit()
         self.editor.save_file()
-        msg = Error()
         self.test_count += 1
         
         cpp_file = self.editor.file_name
@@ -301,8 +300,12 @@ class CppEditorNode:
             os.path.dirname(self.editor.file_name), "tmp.out"
         )
         
+        self.output.place_text("\n----------------\nTest #{}: testing {}".format(  self.test_count,
+                os.path.basename(self.editor.file_name)))
+
         result, err = self.compile(cpp_file, binary_file)
         if not result:
+            msg = Debug()
             # failed to compile
             msg.type = msg.COMPILE
             msg.stderr = err
@@ -312,11 +315,9 @@ class CppEditorNode:
             return
 
         # compiled successfully, now try to run via gdb
-            
-        # run via gdb
         self.gdbmi = gdbmi = GdbController()
         response = gdbmi.write('-file-exec-and-symbols ' + binary_file)
-        response = gdbmi.write('-exec-run')\
+        response = gdbmi.write('-exec-run')
         
         if self.process_gdb_response(response):
             self.in_debug = True
@@ -326,7 +327,7 @@ class CppEditorNode:
             gdbmi.exit()
 
     def process_gdb_response(self, response):
-        msg = Error()
+        msg = Debug()
         program_output = ""
         gdb_output = ""
         for item in response:
@@ -343,8 +344,16 @@ class CppEditorNode:
                     msg.type = msg.SUCCESS
                 else:
                     msg.type = msg.RUNTIME
-                    msg.payload = item["payload"]
+                    msg.payload = str(item["payload"])
+
+                self.test_pub.publish(msg)
                 return False
+
+        msg.type = msg.ONGOING
+        msg.payload = ""
+        msg.stdout = program_output
+        msg.stderr = gdb_output
+        self.test_pub.publish(msg)
         return True
         
     def monitor_test(self, gdbmi):
@@ -354,6 +363,8 @@ class CppEditorNode:
             return
         response = gdbmi.write(user_input, raise_error_on_timeout=False)
         self.in_debug = self.process_gdb_response(response)
+        if not self.in_debug:
+            gdbmi.exit()
     
 if __name__ == "__main__":
     CppEditorNode()

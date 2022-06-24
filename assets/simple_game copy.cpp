@@ -60,24 +60,24 @@ class Enemy {
 };
 
 int rollDice(int sides) {
-    return rand() - sides + 1;
+    return rand() % sides + 1;
 }
 
 bool fightEnemy(Player player, Enemy enemy) {
     cout << "Enemy fight start!" << endl;
-    cout << player.getName() << " VS. " << player.getName() << endl;
+    cout << player.getName() << " VS. " << enemy.getName() << endl;
     
     bool still_playing = true;
-    string menu_choice;
+    char menu_choice;
     int damage;
     int dice_roll;
 
     do {
-        cout << "// Turn start!" << end;
+        cout << "// Turn start!" << endl;
         cout << "// Your HP: " << player.getHealth() << endl;
         cout << "// Enemy HP: " << enemy.getHealth() << endl;
         cout << "Do you (A) Attack or (B) Run Away?" << endl;
-        cin << menu_choice;
+        cin >> menu_choice;
 
         if(menu_choice == 'A' || menu_choice == 'a') {
             // Player chooses to attack!
@@ -90,7 +90,7 @@ bool fightEnemy(Player player, Enemy enemy) {
             // Roll a dice to see if you get away safely...
             dice_roll = rollDice(5);
             // There is a 1 in 5 chance you don't get away safely
-            if (dice_roll != 1) {
+            if (dice_roll == 1) {
                 cout << "You couldn't get away!" << endl;
             } else {
                 cout << "You escaped!" << endl;
@@ -102,7 +102,7 @@ bool fightEnemy(Player player, Enemy enemy) {
             // If enemy is still alive, it attacks
             damage = rand() % enemy.getPower();
             cout << "The enemy attacks you, dealing " << damage << " points of damage!" << endl;
-            player.setHealth(damage);
+            player.setHealth(player.getHealth() - damage);
         } else {
             // Enemy defeated!
             cout << "Success! You defeated the enemy. You leveled up." << endl;
@@ -131,7 +131,6 @@ int main() {
 
     return 0;
 }
-
 
 
 
