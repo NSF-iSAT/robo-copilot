@@ -91,24 +91,28 @@ class OutputWindow:
         test_button = Button(bottomframe, text="Test", command=test_fn)
         test_button.pack(side=RIGHT)
 
-        self.entry_field = Entry(bottomframe, font=("Courier New", 12))
-        self.entry_field.bind("<Return>", self.input_cb)
+        self.user_input = StringVar()
+        self.last_input = None
+        self.entry_field = Entry(bottomframe, font=("Courier New", 12), textvariable = self.user_input)
+        self.entry_field.bind("<Return>", self._get_input)
         self.entry_field.pack(side=LEFT, fill=X)
 
         frame.pack(side=TOP, fill=BOTH, expand=True)
         bottomframe.pack(side=BOTTOM, fill=X)
 
-        self.input_buffer = []
-
-    def input_cb(self, event=None):
-        line = self.entry_field.get()
-        self.input_buffer.append(line)
+    def _get_input(self, event=None):
+        user_input = self.user_input.get()
         self.entry_field.delete(0, END)
+        self.place_text(user_input)
+        if not user_input:
+            self.last_input = None
+        else:
+            self.last_input = user_input
 
-    def read_input(self):
-        if not self.input_buffer:
-            return ""
-        return self.input_buffer.pop(0)
+    def get_input(self):
+        line = self.last_input
+        self.last_input = None
+        return line
 
     def place_text(self, new_text):
         # self.test_count += 1
@@ -263,8 +267,13 @@ class CppEditorNode:
 
         self.editor._open_file("/home/kaleb/code/ros_ws/src/robo_copilot/assets/test1.cpp")
 
+        self.in_debug = False
+        self.gdbmi    = None
+
         while not rospy.is_shutdown():
             try:
+                if self.in_debug:
+                    self.monitor_test(self.gdbmi)
                 self.tk.update()
             except:
                 break
@@ -281,6 +290,8 @@ class CppEditorNode:
         return (True, "")
 
     def run_test(self):
+        if self.in_debug:
+            return
         self.editor.save_file()
         msg = Error()
         self.test_count += 1
@@ -303,52 +314,46 @@ class CppEditorNode:
         # compiled successfully, now try to run via gdb
             
         # run via gdb
-        gdbmi = GdbController()
+        self.gdbmi = gdbmi = GdbController()
         response = gdbmi.write('-file-exec-and-symbols ' + binary_file)
-        response = gdbmi.write('-exec-run')
+        response = gdbmi.write('-exec-run')\
+        
+        if self.process_gdb_response(response):
+            self.in_debug = True
+        else:
+            self.in_debug = False
+            self.gdbmi = None
+            gdbmi.exit()
 
-        # gdbmi.exit()
-        pprint(response)
+    def process_gdb_response(self, response):
         msg = Error()
         program_output = ""
         gdb_output = ""
+        for item in response:
+            if item["type"] == "output":
+                program_output += item["payload"]
+                self.output.place_text(item["payload"])
 
-        running = True
+            elif item["type"] == "console":
+                gdb_output += item["payload"]
+                self.output.place_text("\nDEBUG: " + item["payload"])
 
-        while (running):
-            # parse gdbmi output
-            for item in response:
-                if item["type"] == "output":
-                    program_output += item["payload"]
-                    self.output.place_text(item["payload"])
-
-                elif item["type"] == "console":
-                    gdb_output += item["payload"]
-                    self.output.place_text("\nDEBUG: " + item["payload"])
-
-                elif item["message"] == "stopped":
-                    running = False
-                    if item["payload"]["reason"] == "exited-normally":
-                        msg.type = msg.SUCCESS
-                    else:
-                        msg.type = msg.RUNTIME
-                        msg.payload = item["payload"]
-            response = []
-            if running:
-                # program is, presumably, waiting for user input
-                user_input       = self.output.read_input()
-                if not user_input:
-                    continue
-                self.output.place_text("> " + user_input)
-                response         = gdbmi.write(user_input)
-
-        # publish & cleanup
-        gdbmi.exit()
-        msg.stdout = program_output
-        msg.stderr = gdb_output
+            elif item["message"] == "stopped":
+                if item["payload"]["reason"] == "exited-normally":
+                    msg.type = msg.SUCCESS
+                else:
+                    msg.type = msg.RUNTIME
+                    msg.payload = item["payload"]
+                return False
+        return True
         
-        # self.test_pub.publish(msg)
-        os.remove(binary_file)
+    def monitor_test(self, gdbmi):
+        # check for input
+        user_input = self.output.get_input()
+        if user_input is None:
+            return
+        response = gdbmi.write(user_input, raise_error_on_timeout=False)
+        self.in_debug = self.process_gdb_response(response)
     
 if __name__ == "__main__":
     CppEditorNode()
