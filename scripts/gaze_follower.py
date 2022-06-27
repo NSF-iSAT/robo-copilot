@@ -8,12 +8,12 @@ from std_msgs.msg import String
 # idk about some of these parameters, I just based it on https://github.com/MistySampleSkills/Misty-Concierge-Template/blob/master/JavaScript/conciergeBaseTemplate/conciergeBaseTemplate.js
 
 # movement limits, in degrees
-PITCH_UP = -38
-PITCH_DOWN = 23
-YAW_LEFT = 80
-YAW_RIGHT = -80
-ROLL_LEFT = -40
-ROLL_RIGHT = 40
+PITCH_UP = -35
+PITCH_DOWN = 20
+YAW_LEFT = 70
+YAW_RIGHT = -70
+ROLL_LEFT = -35
+ROLL_RIGHT = 35
 
 # BEAR_RANGE = 6 # -13 right and +13 left
 # ELEVATION_RANGE = 12 # -13 up and +13 down
@@ -83,7 +83,7 @@ class GazeFollower:
 
             rospy.sleep(self.timeout)
     
-    def spoken_backhannel(self):
+    def spoken_backchannel(self):
         bc = random.choice(self.spoken_backchannel_options)
         self.speech_pub.publish(bc)
 

@@ -265,7 +265,7 @@ class CppEditorNode:
         self.output = OutputWindow(Toplevel(), self.run_test)
         self.test_count = 0
 
-        self.editor._open_file("/home/kaleb/code/ros_ws/src/robo_copilot/assets/test1.cpp")
+        self.editor._open_file("/home/kaleb/code/ros_ws/src/robo_copilot/assets/simple_game.cpp")
 
         self.in_debug = False
         self.gdbmi    = None
@@ -285,6 +285,7 @@ class CppEditorNode:
     def compile(self, cpp_file, binary_file):
         res = subprocess.run(["g++", "-g3", cpp_file, "-o", binary_file], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         print(res.stdout.decode('utf-8'))
+        print(res.stderr.decode('utf-8'))
         if res.returncode != 0:
             return (False, res.stderr.decode('utf-8'))
         return (True, "")

@@ -21,10 +21,6 @@
         </include>
     </group>
 
-    <group if="$(arg use_tts)">
-        <node name="google_tts" pkg="robo_copilot" type="google_tts.py" output="screen"/>
-    </group>
-
     <node name="cpp_editor_node" pkg="robo_copilot" type="tk_editor.py" output="screen"/>
     <node name="feedback_gen" pkg="robo_copilot" type="feedback_gen.py" output="screen"/>
 
