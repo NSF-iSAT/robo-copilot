@@ -34,16 +34,16 @@ class GazeFollower:
 
         self.do_idle = True
         self.timeout = rospy.Duration(1.5)
-        self.reset_timeout = rospy.Duration(10)
-        self.idle_timeout = rospy.Duration(5)
-        self.joint_attn_timeout = rospy.Duration(5)
-        self.joint_attn_offset = 20 # degrees, yaw
+        self.reset_timeout = rospy.Duration(30)
+        self.idle_timeout = rospy.Duration(15)
 
         self.gaze_last_seen = rospy.Time.now()
         self.gaze_last_changed = rospy.Time.now()
         self.movement_start = rospy.Time.now()
 
         self.look_dir = 1 # for when scanning for faces
+
+        self.utterance_start = rospy.Time.now()
 
         # pubs and subs
         gaze_sub = rospy.Subscriber("/gaze_state", GazeState, self.gaze_callback)
@@ -74,8 +74,8 @@ class GazeFollower:
             elif rospy.Time.now() - self.gaze_last_seen > self.reset_timeout and rospy.Time.now() - self.movement_start > self.timeout:
                 self.look_for_face()
 
-            # elif rospy.Time.now() - self.movement_start > self.idle_timeout :
-            #     self.do_idle_motion()
+            elif rospy.Time.now() - self.movement_start > self.idle_timeout :
+                self.do_idle_motion()
 
             # elif self.listening:
             #     # TODO add more interesting things to do when listening
@@ -104,9 +104,9 @@ class GazeFollower:
         self.arms_pub.publish(MoveArms(leftArm=straight_arm, rightArm=straight_arm))
 
     def nod(self):
-        pitch_factor = -20
-        if self.head_pitch + 20 <= PITCH_DOWN:
-            pitch_factor = 20
+        pitch_factor = -15
+        if self.head_pitch + 15 <= PITCH_DOWN:
+            pitch_factor = 15
 
         self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=self.head_pitch-pitch_factor, yaw=self.head_yaw,
             velocity=100, units="degrees"))
@@ -120,6 +120,7 @@ class GazeFollower:
     def speaking_callback(self, msg):
         if msg.event == msg.STARTED:
             self.is_listening = True
+            self.utterance_start = rospy.Time.now()
             # tilt head and change expression to indicate listening
             self.head_pub.publish(MoveHead(roll=self.head_roll+(25 * random.choice([-1, 1])), pitch=self.head_pitch, yaw=self.head_yaw, velocity=90))
             self.face_pub.publish(String("e_Joy.jpg"))
@@ -129,8 +130,17 @@ class GazeFollower:
             # reset head position to original (before tilt)
             self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=self.head_pitch, yaw=self.head_yaw, velocity=90))
             self.face_pub.publish(String("e_DefaultContent.jpg"))
+            
+            utterance_duration = rospy.Time.now() - self.utterance_start
+            if utterance_duration > rospy.Duration(7.0):
+                self.speech_pub.publish(String("I see."))
+            elif utterance_duration > rospy.Duration(2.0):
+                self.nod()
+                self.arm_waggle()
+
             self.nod()
             self.arm_waggle()
+            self.movement_start = rospy.Time.now()
 
     def look_for_face(self):
         yaw = self.head_yaw
@@ -144,7 +154,8 @@ class GazeFollower:
         self.head_pitch = 0
 
     def do_idle_motion(self):
-        id = random.randint(0, 3)
+        # id = random.randint(0, 2)
+        id = 2
         if id == 0:
             self.head_pub.publish(MoveHead(roll=20, pitch=self.head_pitch, yaw=self.head_yaw, velocity=100, units="degrees"))
             rospy.sleep(self.timeout)
@@ -156,19 +167,13 @@ class GazeFollower:
             self.face_pub.publish(String("e_DefaultContent.jpg"))
 
         elif id == 2:
-            self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=-10, yaw=self.head_yaw, velocity=90))
+            # look at screen
+            self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=0, yaw=YAW_RIGHT, velocity=95,
+                 units="degrees"))
             rospy.sleep(self.timeout)
-            self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=self.head_pitch, yaw=self.head_yaw, velocity=90))
-            self.movement_start = rospy.Time.now()
+            self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=self.head_pitch,
+                 yaw=self.head_yaw, velocity=95, units="degrees"))
 
-        self.movement_start = rospy.Time.now()
-
-    def reset(self):
-        self.head_pub.publish(MoveHead(roll=0, pitch=0, yaw=0,
-            velocity=100, units="degrees"))
-        self.head_yaw = 0
-        self.head_pitch = 0
-        self.head_roll = 0
         self.movement_start = rospy.Time.now()
 
     def reset(self):

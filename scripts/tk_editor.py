@@ -175,7 +175,7 @@ class EditorWindow:
         scroller.pack(side=RIGHT, fill=Y)
 
         self.text_area = CustomText(self.frame, font=("Courier New", 12), undo=True)
-        self.linenumbers = TextLineNumbers(self.frame, width=60)
+        self.linenumbers = TextLineNumbers(self.frame, width=90)
         self.linenumbers.attach(self.text_area)
         self.linenumbers.pack(side=LEFT, fill=Y)
         self.text_area.pack(side=RIGHT, fill=BOTH, expand=1)
