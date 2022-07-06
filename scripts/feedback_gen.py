@@ -6,12 +6,9 @@ import random
 import re
 import json
 
-SPOKEN_BACKCHANNELS = [
-    "I see.",
-    "Hmmmm.",
-    "Oh.",
-    "I think I follow."
-]
+import pygccxml as pg
+
+
 
 COMPILATION_ERROR_POOL = [
     "We got a compilation error. Can we take a look?",
@@ -25,7 +22,7 @@ RUNTIME_ERROR_POOL = [
 ]
 
 SUCCESS_POOL = [
-    "It compiled and ran okay, that's great!"
+    "It compiled and ran, that's great! Is the output what you were expecting?"
 ]
 
 CHARACTER_DICT = {
@@ -70,6 +67,12 @@ keyword_dict = {
 
 class CopilotFeedback:
     def __init__(self):
+        gen_path, gen_name = pg.utils.find_xml_generator()
+        self.xml_gen_config = pg.parser.xml_generator_configuration_t(
+            xml_generator_path = gen_path,
+            xml_generator = gen_name
+        )
+
 
         rospy.init_node("feedback_gen", anonymous=True)
         # subscribers
@@ -82,16 +85,23 @@ class CopilotFeedback:
             an interactive game.</s> <s>It has a lot of problems and I'm not very good at programming.</s>
             <s>Could we work on it together?</s>
             """
-        rospy.sleep(6.0)
-        self.face_pub.publish(String("e_Joy.jpg"))
-        self.speech_pub.publish(startup_msg)
-        rospy.sleep(6.0)
-        self.action_pub.publish("unsure")
+        # rospy.sleep(6.0)
+        # self.face_pub.publish(String("e_Joy.jpg"))
+        # self.speech_pub.publish(startup_msg)
+        # rospy.sleep(6.0)
+        # self.action_pub.publish("unsure")
 
         self.last_state = None
 
         rospy.Subscriber("/cpp_editor_node/test", Debug, self.test_cb)
         rospy.spin()
+
+    def code_cb(self, msg):
+        # parse code
+        self.latest_code = msg
+        self.latest_code_parsed = pg.parser.parse_string(
+            self.latest_code, self.xml_gen_config
+        )
 
     def test_cb(self, msg):
         if msg.type == msg.COMPILE:

@@ -22,6 +22,13 @@ HEIGHT_RANGE = 120
 
 DELTA_MIN = 0.1
 
+SPOKEN_BACKCHANNELS = [
+    "I see.",
+    "Hmmmm.",
+    "Oh.",
+    "I think I follow."
+]
+
 class GazeFollower:
     def __init__(self, misty_id, img_w, img_h):
         rospy.init_node("gaze_follower", anonymous=True)
@@ -104,9 +111,9 @@ class GazeFollower:
         self.arms_pub.publish(MoveArms(leftArm=straight_arm, rightArm=straight_arm))
 
     def nod(self):
-        pitch_factor = -15
-        if self.head_pitch + 15 <= PITCH_DOWN:
-            pitch_factor = 15
+        pitch_factor = 15
+        if self.head_pitch - 15 <= PITCH_UP:
+            pitch_factor = -15
 
         self.head_pub.publish(MoveHead(roll=self.head_roll, pitch=self.head_pitch-pitch_factor, yaw=self.head_yaw,
             velocity=100, units="degrees"))
@@ -132,8 +139,8 @@ class GazeFollower:
             self.face_pub.publish(String("e_DefaultContent.jpg"))
             
             utterance_duration = rospy.Time.now() - self.utterance_start
-            if utterance_duration > rospy.Duration(7.0):
-                self.speech_pub.publish(String("I see."))
+            if utterance_duration > rospy.Duration(5.0):
+                self.speech_pub.publish(String(random.choice(SPOKEN_BACKCHANNELS)))
             elif utterance_duration > rospy.Duration(2.0):
                 self.nod()
                 self.arm_waggle()

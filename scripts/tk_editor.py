@@ -11,8 +11,6 @@ import rospy
 from std_msgs.msg import String
 from robo_copilot.msg import Debug
 
-# import pexpect
-
 class TextLineNumbers(Canvas):
     # module to add line numbers
     def __init__(self, *args, **kwargs):
@@ -265,7 +263,7 @@ class CppEditorNode:
         self.output = OutputWindow(Toplevel(), self.run_test)
         self.test_count = 0
 
-        self.editor._open_file("/home/kaleb/code/ros_ws/src/robo_copilot/assets/simple_game.cpp")
+        self.editor._open_file("/home/kaleb/code/ros_ws/src/robo_copilot/assets/simple_game_solution.cpp")
 
         self.in_debug = False
         self.gdbmi    = None
@@ -288,7 +286,7 @@ class CppEditorNode:
         print(res.stderr.decode('utf-8'))
         if res.returncode != 0:
             return (False, res.stderr.decode('utf-8'))
-        return (True, "")
+        return (True, res.stderr.decode('utf-8'))
 
     def run_test(self):
         if self.in_debug:
@@ -314,7 +312,7 @@ class CppEditorNode:
             self.test_pub.publish(msg)
             self.output.place_text(err)
             return
-
+        self.output.place_text("\nCOMPILER: " + err)
         # compiled successfully, now try to run via gdb
         self.gdbmi = gdbmi = GdbController()
         response = gdbmi.write('-file-exec-and-symbols ' + binary_file)

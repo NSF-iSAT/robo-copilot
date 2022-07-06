@@ -3,7 +3,7 @@
     <arg name="camera_topic"    default="/misty/id_0/camera/color/image_raw"/>
     <arg name="use_s2t"         default="false"/>
     <arg name="use_tts"         default="false"/>
-    <arg name="audio_device"    default="7"/> 
+    <arg name="audio_device_idx"    default="7"/> 
 
     <group if="$(arg use_robot)">
         <include file="$(find misty_wrapper)/launch/misty.launch" pass_all_args="true"></include>
@@ -17,7 +17,7 @@
 
     <group if="$(arg use_s2t)">
         <include file="$(find ros_speech2text)/launch/ros_speech2text.launch">
-            <arg name="audio_device_idx" value="$(arg audio_device)"/>
+            <arg name="audio_device_idx" value="$(arg audio_device_idx)"/>
         </include>
     </group>
 

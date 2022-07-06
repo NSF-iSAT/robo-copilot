@@ -10,7 +10,7 @@ int main()
 	cout << "hello world!" << endl;
   
     // N is assigned garbage value
-    long arr[N];
+    long arr[N]
   
     cin >> N;
   
@@ -24,6 +24,9 @@ int main()
   
     return 0;
 }
+
+
+
 
 
 
