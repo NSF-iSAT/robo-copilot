@@ -263,7 +263,7 @@ class CppEditorNode:
         self.output = OutputWindow(Toplevel(), self.run_test)
         self.test_count = 0
 
-        self.editor._open_file("/home/kaleb/code/ros_ws/src/robo_copilot/assets/simple_game_solution.cpp")
+        self.editor._open_file("/home/kaleb/code/ros_ws/src/robo_copilot/assets/test1.cpp")
 
         self.in_debug = False
         self.gdbmi    = None
@@ -289,6 +289,7 @@ class CppEditorNode:
         return (True, res.stderr.decode('utf-8'))
 
     def run_test(self):
+        self.edit_cb()
         if self.in_debug:
             self.gdbmi.exit()
         self.editor.save_file()

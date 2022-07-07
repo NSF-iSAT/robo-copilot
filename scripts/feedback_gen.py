@@ -8,8 +8,6 @@ import json
 
 import pygccxml as pg
 
-
-
 COMPILATION_ERROR_POOL = [
     "We got a compilation error. Can we take a look?",
     "Looks like it didn't compile. Let's see what it says.",
@@ -45,7 +43,8 @@ CHARACTER_DICT = {
     '<' : 'less than sign',
     '>' : 'greater than sign',
     '-' : 'hyphen',
-    '_' : 'underscore',
+    # '_' : 'underscore',
+    "_" : " ",
     '+' : 'plus',
     '=' : 'equals',
     '*' : 'asterisk',
@@ -94,11 +93,12 @@ class CopilotFeedback:
         self.last_state = None
 
         rospy.Subscriber("/cpp_editor_node/test", Debug, self.test_cb)
+        rospy.Subscriber("/cpp_editor_node/text", String, self.code_cb)
         rospy.spin()
 
     def code_cb(self, msg):
         # parse code
-        self.latest_code = msg
+        self.latest_code = msg.data
         self.latest_code_parsed = pg.parser.parse_string(
             self.latest_code, self.xml_gen_config
         )
@@ -108,7 +108,7 @@ class CopilotFeedback:
             # print(msg.data)
             error_msg = random.choice(COMPILATION_ERROR_POOL)
 
-            p = re.compile(".cpp:(\d*):\d*: error: ([^(]*).*\s*\d*\s\|\s*(.*)")
+            p = re.compile(".cpp:(\d*):\d*: error: ([^\n]*)\n\s*\d*\s*\|\s*([^\n]*)")
             it = p.finditer(msg.stderr)
             self.speech_pub.publish(String(error_msg))
             
@@ -151,10 +151,25 @@ class CopilotFeedback:
 
             rospy.sleep(5.0)
 
+
             self.action_pub.publish(String("unsure"))
             speech += " On line %s in function %s, we got a %s." % (line, fn, sig)
             speech += " I'm not sure why. What do you think?"
             self.speech_pub.publish(String(speech))
+            
+            # function lookup
+            if fn != "main":
+                namespace = pg.declarations.get_global_namespace(self.latest_code_parsed)
+                for decl in namespace.declarations:
+                    if decl.name == fn and isinstance(decl, pg.declarations.free_function_t):
+                        args = decl.arguments
+                        if len(args) > 0:
+                            arg_names = " ".join([str(a.decl_type) + " " + a.name + "," for a in args])
+                            print(arg_names);
+                            speech = "Looks like the function takes " + arg_names + "  as arguments"
+
+                            self.speech_pub.publish(String(speech)) 
+                            rospy.sleep(3.0)
 
         elif msg.type == msg.ONGOING:
             if self.last_state == msg.ONGOING:

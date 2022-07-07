@@ -4,26 +4,23 @@
 using namespace std;
   
 // Driver Code
+void fake_function(int n) {
+    cout << 52 / 0;
+}
+
 int main()
 {
-    long long N;
 	cout << "hello world!" << endl;
-  
-    // N is assigned garbage value
-    long arr[N]
-  
-    cin >> N;
-  
-    for (int i = 0; i < N; i++) {
-        cin >> arr[i];
-    }
-  
-    for (int i = 0; i < N; i++) {
-        cout << arr[i] << " ";
-    }
-  
+    fake_function(5);
     return 0;
 }
+
+
+
+
+
+
+
 
 
 
