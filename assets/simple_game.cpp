@@ -1,147 +1,117 @@
 #include <iostream>
 #include <cstdlib>
-#include <assert.h>
+
 using namespace std;
 
-class Player {
+class TicTacToeGame {
     private:
-        int health;
-        int level;
-        string name;
+        char board[3][3] = {
+            {' ', ' ', ' '},
+            {' ', ' ', ' '},
+            {' ', ' ', ' '}
+        };
+        int filled_squares = 0;
 
     public:
-        Player(int starting_health, int starting_level, string player_name) {
-            health = starting_health;
-            level = starting_level;
-            name = player_name;
-        }
-
-        void setHealth(int new_health) {
-            health = new_health;
-        }
-        void levelUp() {
-            level += 1;
-        }
-
-        int getHealth() {
-            return health;
-        }
-        int getLevel() {
-            return level;
-        }
-        string getName() {
-            return name;
-        }
-};
-
-class Enemy {
-    private:
-        string name;
-        int health;
-        int power;
-    public:
-        Enemy(int enemy_health, int enemy_power, string enemy_name) {
-            health = enemy_health;
-            power = enemy_power;
-            name = enemy_name;
-        }
-        void setHealth(int new_health) {
-            health = new_health;
-        }
-        
-        int getHealth() {
-            return health;
-        }
-        int getPower() {
-            return power;
-        }
-        string getName() {
-            return name;
-        }
-};
-
-int rollDice(int sides) {
-    return rand() % sides + 1;
-}
-
-bool fightEnemy(Player player, Enemy enemy) {
-    cout << "Enemy fight start!" << endl;
-    cout << player.getName() << " VS. " << enemy.getName() << endl;
-    
-    bool still_playing = true;
-    char menu_choice;
-    int damage;
-    int dice_roll;
-
-    do {
-        cout << "// Turn start!" << endl;
-        cout << "// Your HP: " << player.getHealth() << endl;
-        cout << "// Enemy HP: " << enemy.getHealth() << endl;
-        cout << "Do you (A) Attack or (B) Run Away?" << endl;
-        cin >> menu_choice;
-
-        if(menu_choice == 'A' || menu_choice == 'a') {
-            // Player chooses to attack!
-            damage = rand() % player.getLevel();
-            cout << "You attack, dealing " << damage << " points of damage!" << endl;
-
-            enemy.setHealth(enemy.getHealth() - damage);
-        } else {
-            // Player chooses to run away!
-            // Roll a dice to see if you get away safely...
-            dice_roll = rollDice(5);
-            // There is a 1 in 5 chance you don't get away safely
-            if (dice_roll == 1) {
-                cout << "You couldn't get away!" << endl;
+        void placeChar(char c, int row, int col) {
+            if (row > 3 || col > 3) {
+                cout << "placeChar: invalid" << endl;
+            } else if (board[row][col] != ' ') {
+                cout << "placeChar: spot not empty" << endl;
             } else {
-                cout << "You escaped!" << endl;
-                return true;
+                board[row][col] = c;
+                filled_squares += 1;
             }
         }
 
-        if(enemy.getHealth() > 0) {
-            // If enemy is still alive, it attacks
-            damage = rand() % enemy.getPower();
-            cout << "The enemy attacks you, dealing " << damage << " points of damage!" << endl;
-            player.setHealth(player.getHealth() - damage);
-        } else {
-            // Enemy defeated!
-            cout << "Success! You defeated the enemy. You leveled up." << endl;
-            player.levelUp();
-            cout << "You are now level " << player.getLevel() << endl;
+        void printBoard() {
+            cout << "_______" << endl;
+            for (int i = 0; i < 3; i++) {
+                for (int j = 0; j < 3; j++) {
+                    cout << "|" << board[i][j];
+                }
+                cout << "|" << endl << "_______" << endl;
+
+            }
         }
 
-    } while (player.getHealth() > 0 && enemy.getHealth() > 0);
+        bool checkWin(char c) {
+            // check for 3 in a row horizontally and vertically
+            for (int i = 0; i < 3; i++) {
+                if (board[i][0] == c && board[i][1] == c && board[i][2] == c) {
+                    return true;
+                } else if (board[0][i] == c && board[1][i] == c && board[2][i] == c) {
+                    return true;
+                }
+            }
 
-    if (player.getHealth() <= 0) {
-        cout << "GAME OVER" << endl;
-        cout << "You died :(" << endl;
-        cout << "You made it to level: " << player.getLevel() << endl;
-        return false;
-    } else {
-        // Player survived the encounter
-        return true;
-    }
-}
+            // check for 3 in a row diagonally
+            if (board[0][0] == c && board[1][1] == c && board[2][2] == c) {
+                return true;
+            } else if (board[0][2] == c && board[1][1] == c && board[2][0] == c) {
+                return true;
+            }
 
-int test_player_class() {
-    Player player1 = Player(100, 3, "James");
-    assert(player1.getHealth() == 100);
-    assert(player1.getLevel() == 3);
-    assert(player1.getName() == "James");
+            return false;
+        }
 
-    player1.setHealth(20);
-    assert(player1.getHealth() == 20);
-    player1.levelUp();
-    assert(player1.getLevel() == 4);
+        bool checkFull() {
+            return (filled_squares >= 8);
+        }
+
+        bool checkEmptySquare(int row, int col) {
+            return (board[row][col] == ' ');
+        }
+};
+
+void playGame() {
+    TicTacToeGame game;
+    int row;
+    int col;
+    do {
+        game.printBoard();
+        // get move from player
+        cout << "Enter row of your move: " << endl;;
+        cin >> row;
+
+        cout << "Enter col of your move: " << endl;
+        cin >> col;
+
+        game.placeChar('x', row, col);
+
+        if (game.checkWin('x')) {
+            cout << "You win!" << endl;
+            return;
+        } else if (game.checkFull()) {
+            cout << "Draw!" << endl;
+            return;
+        }
+
+        // make a random move
+        while(true) {
+            row = rand() % 3;
+            col = rand() % 3;
+
+            if(game.checkEmptySquare(row, col)) {
+                game.placeChar('o', row, col);
+                break;
+            }
+        }
+
+        if (game.checkWin('o')) {
+            cout << "Computer wins!" << endl;
+            return;
+        }
+        game.printBoard();
+
+    } while (!game.checkFull());
+    cout << "Draw!" << endl;
 }
 
 int main() {
-    Player player1 (100, 10, "Misty");
-    Enemy enemy1 (20, 20, "Sniper");
-
-    // fightEnemy(player1, enemy1);
-    test_player_class();
-
+    // TicTacToeGame game;
+    // game.printBoard();
+    playGame();
     return 0;
 }
+
