@@ -263,7 +263,7 @@ class CppEditorNode:
         self.output = OutputWindow(Toplevel(), self.run_test)
         self.test_count = 0
 
-        self.editor._open_file("/home/kaleb/code/ros_ws/src/robo_copilot/assets/test1.cpp")
+        self.editor._open_file("/home/kaleb/code/ros_ws/src/robo_copilot/assets/simple_game.cpp")
 
         self.in_debug = False
         self.gdbmi    = None
@@ -313,7 +313,8 @@ class CppEditorNode:
             self.test_pub.publish(msg)
             self.output.place_text(err)
             return
-        self.output.place_text("\nCOMPILER: " + err)
+        if (err.strip()):
+            self.output.place_text("\nCOMPILER: " + err)
         # compiled successfully, now try to run via gdb
         self.gdbmi = gdbmi = GdbController()
         response = gdbmi.write('-file-exec-and-symbols ' + binary_file)
@@ -330,8 +331,10 @@ class CppEditorNode:
         msg = Debug()
         program_output = ""
         gdb_output = ""
+        msg.type = msg.SUCCESS
         for item in response:
             if item["type"] == "output":
+                # TODO: put info about test success/failure here
                 program_output += item["payload"]
                 self.output.place_text(item["payload"])
 
@@ -340,9 +343,7 @@ class CppEditorNode:
                 self.output.place_text("\nDEBUG: " + item["payload"])
 
             elif item["message"] == "stopped":
-                if item["payload"]["reason"] == "exited-normally":
-                    msg.type = msg.SUCCESS
-                else:
+                if item["payload"]["reason"] != "exited-normally":
                     msg.type = msg.RUNTIME
                     msg.payload = str(item["payload"])
 

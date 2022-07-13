@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <cstdlib>
+#include <stdexcept>
 
 using namespace std;
 
@@ -50,7 +51,7 @@ class TicTacToeGame {
 
             // check for 3 in a row diagonally
             if (board[0][0] == c && board[1][1] == c && board[2][2] == c) {
-                return true;
+                return false;
             } else if (board[0][2] == c && board[1][1] == c && board[2][0] == c) {
                 return true;
             }
@@ -170,30 +171,41 @@ void testGame(int test_number) {
 
     if (expected_outcome == "x") {
         if(x_win && !o_win) {
-            cout << "got expected outcome: x wins, o loses" << endl;;
+            cout << "TEST SUCCESS: x wins, o loses" << endl;;
         } else {
-            cout << "got unexpected outcome: expected x wins, o loses" << endl;
+            cout << "TEST ERROR: got unexpected outcome: expected x wins, o loses" << endl;
         }
     } else if (expected_outcome == "o") {
         if(o_win && !x_win) {
-            cout << "got expected outcome: o wins, x loses" << endl;
+            cout << "TEST SUCCESS: o wins, x loses" << endl;
         } else {
-            cout << "got unexpected outcome: expected o wins, x loses" << endl;
+            cout << "TEST ERROR: got unexpected outcome: expected o wins, x loses" << endl;
         }
     } else {
         // expected draw
         if(is_full && !x_win && !o_win) {
-            cout << "got expected outcome: DRAW, neither side wins" << endl;
+            cout << "TEST SUCCESS: draw, neither side wins" << endl;
         } else {
-            cout << "got unexpected outcome: expected DRAW, neither side wins" << endl;
+            cout << "TEST ERROR: got unexpected outcome: expected DRAW with neither side winning" << endl;
         }
     }
 }
 
 int main() {
+    testGame(1);
+    testGame(2);
     testGame(3);
     return 0;
 }
+
+
+
+
+
+
+
+
+
 
 
 
