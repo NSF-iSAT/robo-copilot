@@ -334,9 +334,13 @@ class CppEditorNode:
         msg.type = msg.SUCCESS
         for item in response:
             if item["type"] == "output":
-                # TODO: put info about test success/failure here
                 program_output += item["payload"]
                 self.output.place_text(item["payload"])
+
+                if "TEST ERROR" in item["payload"]:
+                    msg.type = msg.OUTPUT
+                    msg.payload = item["payload"]
+                    self.test_pub.publish(msg)
 
             elif item["type"] == "console":
                 gdb_output += item["payload"]

@@ -19,8 +19,14 @@ RUNTIME_ERROR_POOL = [
     "Hmmm... it looks like the code had an error when it ran. Let's see."
 ]
 
+OUTPUT_ERROR_POOL = [
+    "Aw, it compiled okay but ran into a test error. ",
+    "It looks like the code ran but might have failed one of the built-in tests. ",
+    "The code compiled and ran, but it looks like the output it produced wasn't quite right. "
+]
+
 SUCCESS_POOL = [
-    "It compiled and ran, that's great! Is the output what you were expecting?"
+    "It compiled and ran, that's great! Is the output what you were expecting? It looks good to me!"
 ]
 
 CHARACTER_DICT = {
@@ -60,8 +66,8 @@ CHARACTER_DICT = {
 }
 
 keyword_dict = {
-    "operator" : "<s>What is that operator supposed to do here?</s>",
-    "==" : "<s>What things are you comparing?</s> <s>And what types are they? </s>"
+    "operator" : "What is that operator supposed to do here?",
+    "==" : "What things are you comparing? And what types are they?"
 }
 
 class CopilotFeedback:
@@ -78,18 +84,22 @@ class CopilotFeedback:
         self.speech_pub = rospy.Publisher("/misty/id_0/gcloud_speech",  String, queue_size=2)
         self.face_pub   = rospy.Publisher("/misty/id_0/face_img", String, queue_size=1)
         self.action_pub = rospy.Publisher("/misty/id_0/action", String, queue_size=1)
+        
+        self.CONDITION = rospy.get_param("~condition")
 
         startup_msg = """
             Hi there! I'm Misty. <s>I'm trying to debug this C plus plus program I found to make
-            an interactive game.</s> <s>It has a lot of problems and I'm not very good at programming.</s>
-            <s>Could we work on it together?</s>
+            a tic tac toe game.</s> <s>But, it has a lot of problems and I don't know that much about programming.</s>
+            <s>Could you help me fix the bugs?</s>
             """
-        # rospy.sleep(6.0)
-        # self.face_pub.publish(String("e_Joy.jpg"))
-        # self.speech_pub.publish(startup_msg)
-        # rospy.sleep(6.0)
-        # self.action_pub.publish("unsure")
+        rospy.sleep(6.0)
+        self.face_pub.publish(String("e_Joy.jpg"))
+        self.speech_pub.publish(startup_msg)
+        rospy.sleep(6.0)
+        self.action_pub.publish("unsure")
 
+        self.err_timeout = rospy.Duration(10.0)
+        self.last_msg_time = rospy.Time(0.0)
         self.last_state = None
 
         rospy.Subscriber("/cpp_editor_node/test", Debug, self.test_cb)
@@ -104,8 +114,12 @@ class CopilotFeedback:
         )
 
     def test_cb(self, msg):
+        if rospy.Time.now() - self.last_msg_time >= self.err_timeout:
+            self.last_state = None
+
         if msg.type == msg.COMPILE:
             # print(msg.data)
+
             error_msg = random.choice(COMPILATION_ERROR_POOL)
 
             p = re.compile(".cpp:(\d*):\d*: error: ([^\n]*)\n\s*\d*\s*\|\s*([^\n]*)")
@@ -127,11 +141,18 @@ class CopilotFeedback:
             rospy.sleep(5.0)
             rospy.loginfo(first_err_msg)
             self.action_pub.publish(String("unsure"))
-            error_msg = "<s>It looks like on line %s there's an error: %s. Do you know how we can fix that?</s>" % (first_line_no, first_err_msg)
-            # error_msg += ("<s>It's the line that says %s</s>" % first_line_of_err)
-            self.speech_pub.publish(String(error_msg))
-            rospy.sleep(2.0)
-            self.action_pub.publish(String("unsure"))
+
+            if self.CONDITION == "copilot":
+                error_msg = "<s>It looks like on line %s there's an error: %s. Do you know how we can fix that?</s>" % (first_line_no, first_err_msg)
+                # error_msg += ("<s>It's the line that says %s</s>" % first_line_of_err)
+                self.speech_pub.publish(String(error_msg))
+                rospy.sleep(2.0)
+                for key in keyword_dict.keys():
+                    if key in first_err_msg:
+                        speech = "<s>" + keyword_dict[key] + "</s>"
+                        self.speech_pub.publish(speech)
+                        break
+                self.action_pub.publish(String("unsure"))
             
         elif msg.type == msg.SUCCESS:
             self.action_pub.publish(String("celebrate"))
@@ -140,7 +161,6 @@ class CopilotFeedback:
             self.speech_pub.publish(String(speech))
 
         elif msg.type == msg.RUNTIME:
-            # TODO
             speech = random.choice(RUNTIME_ERROR_POOL)
             # print(msg.payload)
             k = msg.payload.replace("'", '"')
@@ -151,10 +171,10 @@ class CopilotFeedback:
 
             rospy.sleep(5.0)
 
-
+            if self.CONDITION == "copilot":
+                speech += " On line %s in function %s, we got a %s." % (line, fn, sig)
+                speech += " I'm not sure why. What do you think?"
             self.action_pub.publish(String("unsure"))
-            speech += " On line %s in function %s, we got a %s." % (line, fn, sig)
-            speech += " I'm not sure why. What do you think?"
             self.speech_pub.publish(String(speech))
             
             # function lookup
@@ -165,20 +185,30 @@ class CopilotFeedback:
                         args = decl.arguments
                         if len(args) > 0:
                             arg_names = " ".join([str(a.decl_type) + " " + a.name + "," for a in args])
-                            print(arg_names);
+                            print(arg_names)
                             speech = "Looks like the function takes " + arg_names + "  as arguments"
 
                             self.speech_pub.publish(String(speech)) 
                             rospy.sleep(3.0)
 
         elif msg.type == msg.ONGOING:
-            if self.last_state == msg.ONGOING:
-                return
-            self.face_pub.publish(String("e_Joy.jpg"))
-            speech = "Awesome, it compiled ok! Now we can see how it runs."
-            self.speech_pub.publish(String(speech))
-            rospy.sleep(3.0)
-            self.face_pub.publish(String("e_DefaultContent.jpg"))
+            if self.last_state != msg.ONGOING:
+                self.face_pub.publish(String("e_Joy.jpg"))
+                speech = "Awesome, it compiled ok! Now we can see how it runs."
+                self.speech_pub.publish(String(speech))
+                rospy.sleep(3.0)
+                self.face_pub.publish(String("e_DefaultContent.jpg"))
+
+        elif msg.type == msg.OUTPUT:
+            if self.last_state != msg.OUTPUT:
+                print("got here")
+                self.action_pub.publish(String("unsure"))
+                speech = random.choice(OUTPUT_ERROR_POOL)
+
+                if self.CONDITION == "copilot":
+                    speech += (" The test reads: " + msg.payload + ". ")
+                    speech += "Maybe we can look at the game for that test and see what should have happened?"
+                self.speech_pub.publish(String(speech))
 
         self.last_state = msg.type
 
