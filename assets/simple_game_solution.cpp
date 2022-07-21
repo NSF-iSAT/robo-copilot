@@ -111,7 +111,7 @@ void testTicTacToe() {
 
     // TEST 4: testing checkEmptySquare
     if(game.checkEmptySquare(1, 1) || !game.checkEmptySquare(0, 0)) {
-        cout << "TEST 4 ERROR: checkEmptySquare returned an incorrect value";
+        cout << "TEST 4 ERROR: checkEmptySquare returned an incorrect value" << endl;
     }
 
     // TEST 5: testing checkWin

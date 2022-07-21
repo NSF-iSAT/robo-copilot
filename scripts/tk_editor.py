@@ -337,7 +337,7 @@ class CppEditorNode:
                 program_output += item["payload"]
                 self.output.place_text(item["payload"])
 
-                if "TEST ERROR" in item["payload"]:
+                if "ERROR" in item["payload"]:
                     msg.type = msg.OUTPUT
                     msg.payload = item["payload"]
                     self.test_pub.publish(msg)

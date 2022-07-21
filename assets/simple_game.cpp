@@ -96,7 +96,7 @@ void testTicTacToe() {
     string p1 = game.getPlayerName(1);
     string p2 = game.getPlayerName(2);
     if(p1 != "Ann"|| p2 != "Marie") {
-        cout << "TEST 1 ERROR: Expected Ann & Marie, got " << p1 << " and " << p2 << endl;
+        cout << "TEST 1 ERROR: getPlayerName for both players, expected Ann & Marie, got " << p1 << " and " << p2 << endl;
     }
 
     // TEST 2: testing placeChar and printBoard
@@ -113,7 +113,7 @@ void testTicTacToe() {
 
     // TEST 4: testing checkEmptySquare
     if(game.checkEmptySquare(1, 1) || !game.checkEmptySquare(0, 0)) {
-        cout << "TEST 4 ERROR: checkEmptySquare returned an incorrect value";
+        cout << "TEST 4 ERROR: checkEmptySquare returned an incorrect value" << endl;
     }
 
     // TEST 5: testing checkWin
@@ -136,3 +136,11 @@ int main() {
     testTicTacToe();
     return 0;
 }
+
+
+
+
+
+
+
+
