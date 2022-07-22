@@ -267,6 +267,7 @@ class CppEditorNode:
 
         self.in_debug = False
         self.gdbmi    = None
+        self.test_result = None
 
         while not rospy.is_shutdown():
             try:
@@ -289,6 +290,7 @@ class CppEditorNode:
         return (True, res.stderr.decode('utf-8'))
 
     def run_test(self):
+        self.test_result = None
         self.edit_cb()
         if self.in_debug:
             self.gdbmi.exit()
@@ -337,7 +339,8 @@ class CppEditorNode:
                 program_output += item["payload"]
                 self.output.place_text(item["payload"])
 
-                if "ERROR" in item["payload"]:
+                if "ERROR" in item["payload"] and self.test_result is None:
+                    self.test_result = msg.OUTPUT
                     msg.type = msg.OUTPUT
                     msg.payload = item["payload"]
                     self.test_pub.publish(msg)
@@ -347,11 +350,13 @@ class CppEditorNode:
                 self.output.place_text("\nDEBUG: " + item["payload"])
 
             elif item["message"] == "stopped":
-                if item["payload"]["reason"] != "exited-normally":
-                    msg.type = msg.RUNTIME
-                    msg.payload = str(item["payload"])
+                if self.test_result is None:
+                    if item["payload"]["reason"] != "exited-normally":
+                        self.test_result = msg.RUNTIME
+                        msg.type = msg.RUNTIME
+                        msg.payload = str(item["payload"])
 
-                self.test_pub.publish(msg)
+                    self.test_pub.publish(msg)
                 return False
 
         msg.type = msg.ONGOING
