@@ -9,6 +9,8 @@ import json
 
 import pygccxml as pg
 
+from function_text import *
+
 COMPILATION_ERROR_POOL = [
     "We got a compilation error. Can we take a look?",
     "Looks like it didn't compile. Let's see what it says.",
@@ -36,47 +38,6 @@ THINKALOUD_PROMPTS_GENERIC = [
     "Can you explain your current process to me?"
 ]
 
-CHARACTER_DICT = {
-    ';' : 'semicolon',
-    ':' : 'colon',
-    ',' : 'comma',
-    '.' : 'period',
-    '!' : 'exclamation',
-    '?' : 'question mark',
-    '"' : 'quote',
-    '\'' : 'apostrophe',
-    # '(' : 'left parenthesis',
-    # ')' : 'right parenthesis',
-    ')' : "",
-    '(' : "",
-    '[' : 'left bracket',
-    ']' : 'right bracket',
-    '{' : 'left brace',
-    '}' : 'right brace',
-    '<' : 'less than sign',
-    '>' : 'greater than sign',
-    '-' : 'hyphen',
-    # '_' : 'underscore',
-    "_" : " ",
-    '+' : 'plus',
-    '=' : 'equals',
-    '*' : 'asterisk',
-    '/' : 'slash',
-    '%' : 'percent',
-    '$' : 'dollar',
-    '#' : 'hash',
-    '@' : 'at',
-    '&' : 'ampersand',
-    '|' : 'pipe',
-    '~' : 'tilde',
-    '`' : 'backtick'
-}
-
-keyword_dict = {
-    "operator" : "What is that operator supposed to do here?",
-    "==" : "What things are you comparing? And what types are they?"
-}
-
 class CopilotFeedback:
     def __init__(self):
         gen_path, gen_name = pg.utils.find_xml_generator()
@@ -103,7 +64,7 @@ class CopilotFeedback:
         self.last_state = None
         self.last_err   = None
 
-        self.speaking_timeout = rospy.Duration(20.0)
+        self.speaking_timeout = rospy.Duration(10.0)
         self.last_speech_time = rospy.Time.now()
 
         rospy.Subscriber("/cpp_editor_node/test", Debug, self.test_cb)
@@ -152,30 +113,21 @@ class CopilotFeedback:
         else:
             # base prompt on latest error
             if self.last_err.type == self.last_err.COMPILE or self.last_err.type == self.last_err.RUNTIME:
-                for keyword in keyword_dict.keys():
-                    if keyword in self.last_err.body:
-                        self.speech_pub.publish(self.keyword_dict[keyword])
-                        return
-                self.speech_pub.publish(String("Do you think you are able to fix that error?"))
+                # TODO
+                pass
+                # for keyword in keyword_dict.keys():
+                #     if keyword in self.last_err.body:
+                #         self.speech_pub.publish(self.keyword_dict[keyword])
+                #         return
+                # self.speech_pub.publish(String("Do you think you are able to fix that error?"))
 
             elif self.last_err.type == self.last_err.OUTPUT:
                 # parse error message for function information
                 fn_capture = re.compile("ERROR: (\S*)")
                 fn_name = re.search(fn_capture, self.last_err.payload).group(1)
                 
-                # parse latest code
-                latest_code_parsed = pg.parser.parse_string(self.code_latest, self.xml_gen_config)
-                fn_decl_object = self.function_lookup(latest_code_parsed, fn_name)
-                if fn_decl_object is not None:
-                    args = fn_decl_object.arguments
-                    if(len(args) == 0):
-                        args_lst = "nothing"
-                    else:
-                        args_lst = " and ".join([a.name for a in args])
-                    speech = "Seems like the function {} takes {} as arguments. ".format(fn_name, args_lst)    
-                    speech += ("And it looks like it returns {}. ".format(str(fn_decl_object.return_type)))
-                    speech += "What steps does that function take?"
-                    self.speech_pub.publish(String(speech))
+                comment = CODE_KEYWORD_DICT[fn_name]
+                self.speech_pub.publish(String(comment))
 
 
     def test_cb(self, msg):
@@ -195,12 +147,6 @@ class CopilotFeedback:
                 first_line_no = match.group(1)
                 first_line_of_err = match.group(3)
                 break
-            
-            for char in CHARACTER_DICT.keys():
-                if char in first_err_msg:
-                    first_err_msg = first_err_msg.replace(char, " " + CHARACTER_DICT[char] + " ")
-                if char in first_line_of_err:
-                    first_err_msg = first_err_msg.replace(char, " ")
                     
             rospy.sleep(5.0)
             rospy.loginfo(first_err_msg)
@@ -210,11 +156,6 @@ class CopilotFeedback:
                 error_msg = "<s>It looks like on line %s there's an error: %s. Do you know how we can fix that?</s>" % (first_line_no, first_err_msg)
                 self.speech_pub.publish(String(error_msg))
                 rospy.sleep(2.0)
-                for key in keyword_dict.keys():
-                    if key in first_err_msg:
-                        speech = "<s>" + keyword_dict[key] + "</s>"
-                        self.speech_pub.publish(speech)
-                        break
                 self.action_pub.publish(String("unsure"))
             
         elif msg.type == msg.SUCCESS:
@@ -240,28 +181,28 @@ class CopilotFeedback:
                 speech += " I'm not sure why. What do you think?"
             self.action_pub.publish(String("unsure"))
             self.speech_pub.publish(String(speech))
-            
-            # function lookup
-            if fn != "main":
-                namespace = pg.declarations.get_global_namespace(self.latest_code_parsed)
-                for decl in namespace.declarations:
-                    if decl.name == fn and isinstance(decl, pg.declarations.free_function_t):
-                        args = decl.arguments
-                        if len(args) > 0:
-                            arg_names = " ".join([str(a.decl_type) + " " + a.name + "," for a in args])
-                            print(arg_names)
-                            speech = "Looks like the function takes " + arg_names + "  as arguments"
+    
+    #         # function lookup
+    #         if fn != "main":
+    #             namespace = pg.declarations.get_global_namespace(self.latest_code_parsed)
+    #             for decl in namespace.declarations:
+    #                 if decl.name == fn and isinstance(decl, pg.declarations.free_function_t):
+    #                     args = decl.arguments
+    #                     if len(args) > 0:
+    #                         arg_names = " ".join([str(a.decl_type) + " " + a.name + "," for a in args])
+    #                         print(arg_names)
+    #                         speech = "Looks like the function takes " + arg_names + "  as arguments"
 
-                            self.speech_pub.publish(String(speech)) 
-                            rospy.sleep(3.0)
+    #                         self.speech_pub.publish(String(speech)) 
+    #                         rospy.sleep(3.0)
 
-        elif msg.type == msg.ONGOING:
-            if self.last_state != msg.ONGOING:
-                self.face_pub.publish(String("e_Joy.jpg"))
-                speech = "Awesome, it compiled ok! Now we can see how it runs."
-                self.speech_pub.publish(String(speech))
-                rospy.sleep(3.0)
-                self.face_pub.publish(String("e_DefaultContent.jpg"))
+    #     elif msg.type == msg.ONGOING:
+    #         if self.last_state != msg.ONGOING:
+    #             self.face_pub.publish(String("e_Joy.jpg"))
+    #             speech = "Awesome, it compiled ok! Now we can see how it runs."
+    #             self.speech_pub.publish(String(speech))
+    #             rospy.sleep(3.0)
+    #             self.face_pub.publish(String("e_DefaultContent.jpg"))
 
         elif msg.type == msg.OUTPUT:
             if self.last_state != msg.OUTPUT:
@@ -273,14 +214,6 @@ class CopilotFeedback:
                     speech += "Maybe we can look in the code for that test and see what should have happened."
                 self.speech_pub.publish(String(speech))
                 self.last_err = msg
-
-        self.last_state = msg.type
-        
-    def function_lookup(self, parsed_code, fn):
-        namespace = pg.declarations.get_global_namespace(parsed_code)
-        for decl in namespace.declarations:
-            if fn in decl.name and isinstance(decl, pg.declarations.free_function_t):
-                return decl
 
 if __name__ == "__main__":
     CopilotFeedback()
