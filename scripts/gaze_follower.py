@@ -26,7 +26,8 @@ SPOKEN_BACKCHANNELS = [
     "I see.",
     "Hmmmm.",
     "Oh.",
-    "I think I follow."
+    "I think I follow.",
+    "Interesting."
 ]
 
 class GazeFollower:

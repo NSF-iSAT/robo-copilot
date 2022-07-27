@@ -7,10 +7,70 @@ import random
 import re
 import json
 
-import pygccxml as pg
+CODE_KEYWORD_DICT = {
+    "getPlayerName" : "It looks like there's a switch statement in that get player name function. Can you explain how that should work?",
+    "placeChar"     : "Looks like that place char function has a lot of conditionals. What do those do?",
+    "checkWin"      : "Looks like the check Win function has a lot of conditionals. What is that function trying to do?",
+    "checkFull"     : "Hm, can you explain how the checkFull function works?",
+    "checkEmptySquare" : "How is the check empty square function supposed to work?"
+}
 
-from function_text import *
 
+FUNCTION_DICT = {
+    "getPlayerName" : """
+            string name;
+            switch (player_num) {
+                case 1:
+                    name = player1_name;
+                    
+                case 2:
+                    name = player2_name;
+                    break;
+            }
+            return name;""",
+    "placeChar" : """
+            if (row >= 3 || col >= 3) {
+                cout << "placeChar: invalid" << endl;
+            } else if (board[row][col] != ' ') {
+                cout << "placeChar: spot not empty" << endl;
+            } else {
+                board[row][col] = c;
+                
+            }
+        """,
+    "printBoard" : """
+            cout << "   0 | 1 | 2" << endl;
+            cout << "   _________" << endl;
+            for (int i = 0; i < 3; i++) {
+                cout << i;
+                for (int i = 0; i < 3; i++) {
+                    cout << "| " << board[i] << " ";
+                }
+                cout << endl << "   _________" << endl;
+
+            }
+    """,
+    "checkWin" : """
+                // check for 3 in a row horizontally and vertically
+            for (int i = 0; i <= 3; i++) {
+                if (board[i][0] == c || board[i][1] == c || board[i][2] == c) {
+                    return true;
+                } else if (board[0][i] == c && board[1][i] == c && board[2][i] == c) {
+                }
+                    return true;
+            }
+
+            // check for 3 in a row diagonally
+            if (board[0][0] == c && board[1][1] == c && board[2][2] == c) {
+                return true;
+            } else if (board[0][2] == c && board[1][1] == c && board[2][0] == c) {
+                return true;
+            }
+            return false;
+    """,
+    "checkFull" : "return (filled_squares >= 8);",
+    "checkEmptySquare" : "return (board[row][col] = ' ');"
+}
 COMPILATION_ERROR_POOL = [
     "We got a compilation error. Can we take a look?",
     "Looks like it didn't compile. Let's see what it says.",
@@ -40,48 +100,39 @@ THINKALOUD_PROMPTS_GENERIC = [
 
 class CopilotFeedback:
     def __init__(self):
-        gen_path, gen_name = pg.utils.find_xml_generator()
-        self.xml_gen_config = pg.parser.xml_generator_configuration_t(
-            xml_generator_path = gen_path,
-            xml_generator = gen_name
-        )
-
         rospy.init_node("feedback_gen", anonymous=True)
         # subscribers
         self.speech_pub = rospy.Publisher("/misty/id_0/speech",  String, queue_size=2)
         self.face_pub   = rospy.Publisher("/misty/id_0/face_img", String, queue_size=1)
         self.action_pub = rospy.Publisher("/misty/id_0/action", String, queue_size=1)
         
-        # self.CONDITION = rospy.get_param("~condition")
         self.CONDITION = "copilot"
-
+        # TODO uncommment when running for real
+        # self.CONDITION = rospy.get_param("~condition")
         # self.startup()
+
         self.is_listening = False
         self.code_latest = None
+        self.prompts_on_err = 0
 
         self.err_timeout = rospy.Duration(10.0)
         self.last_msg_time = rospy.Time(0.0)
-        self.last_state = None
         self.last_err   = None
 
-        self.speaking_timeout = rospy.Duration(10.0)
+        self.speaking_timeout = rospy.Duration(20.0)
         self.last_speech_time = rospy.Time.now()
 
         rospy.Subscriber("/cpp_editor_node/test", Debug, self.test_cb)
         rospy.Subscriber("/cpp_editor_node/text", String, self.code_cb)
         rospy.Subscriber("/speech_to_text/log", Event, self.speaking_cb)
 
-        # rospy.spin()
-        if self.CONDITION == "control":
-            rospy.spin()
-        else:
-            while not rospy.is_shutdown():
-                if rospy.Time.now() - self.last_speech_time > self.speaking_timeout:
-                    print("timeout triggered")
-                    self.thinkaloud_prompt()
-                    self.last_speech_time = rospy.Time.now()
+        while not rospy.is_shutdown():
+            if not self.is_listening and rospy.Time.now() - self.last_speech_time > self.speaking_timeout:
+                rospy.loginfo("thinkaloud timeout triggered")
+                self.thinkaloud_prompt()
+                self.last_speech_time = rospy.Time.now()
 
-                rospy.sleep(2.0)
+            rospy.sleep(2.0)
 
     def startup(self):
         startup_msg = """
@@ -108,34 +159,53 @@ class CopilotFeedback:
     def thinkaloud_prompt(self):
         if self.last_err is None:
             return
-        if self.CONDITION != "copilot" or self.code_latest is None:
+        elif self.CONDITION != "copilot" or self.code_latest is None:
             self.speech_pub.publish(String(random.choice(THINKALOUD_PROMPTS_GENERIC)))
         else:
-            # base prompt on latest error
-            if self.last_err.type == self.last_err.COMPILE or self.last_err.type == self.last_err.RUNTIME:
-                # TODO
-                pass
-                # for keyword in keyword_dict.keys():
-                #     if keyword in self.last_err.body:
-                #         self.speech_pub.publish(self.keyword_dict[keyword])
-                #         return
-                # self.speech_pub.publish(String("Do you think you are able to fix that error?"))
+            # # base prompt on latest error
+            if self.last_err["type"] == self.last_err["COMPILE"]:
+                if self.prompts_on_err == 0:
+                    speech = "What do you think caused that error on line {}?".format(self.last_err["line"])
+                else:
+                    speech = "What do you think your next steps are for solving that first error?"
 
-            elif self.last_err.type == self.last_err.OUTPUT:
-                # parse error message for function information
-                fn_capture = re.compile("ERROR: (\S*)")
-                fn_name = re.search(fn_capture, self.last_err.payload).group(1)
-                
-                comment = CODE_KEYWORD_DICT[fn_name]
-                self.speech_pub.publish(String(comment))
+            if self.last_err["type"] == self.last_err["RUNTIME"]:
+                if self.prompts_on_err == 0:
+                    speech = "What is the {} function supposed to do? And what input do you think triggered the {}?".format(
+                        self.last_err["function"], self.last_err["signal"])
+                else:
+                    speech = "What do you think your next steps are for solving that first error?"
 
+            elif self.last_err["type"] == self.last_err["OUTPUT"]:
+                if self.prompts_on_err == 0:
+                    speech = CODE_KEYWORD_DICT[self.last_err["function"]]
+                else:
+                    speech = "What do you think the {} function should have produced for that test case?".format(
+                        self.last_err["function"]
+                    )
+            else:
+                return
+            self.prompts_on_err += 1
+
+            self.action_pub.publish("unsure")
+            self.speech_pub.publish(String(speech))
 
     def test_cb(self, msg):
-        if rospy.Time.now() - self.last_msg_time >= self.err_timeout:
-            self.last_state = None
+        self.last_speech_time = rospy.Time.now()
+        self.prompts_on_err = 0
+        self.last_err = {}
+        self.last_err["type"] = msg.type
+        self.last_err["payload"] = msg.payload
+
+        self.last_err["SUCCESS"] = msg.SUCCESS
+        self.last_err["RUNTIME"] = msg.RUNTIME
+        self.last_err["COMPILE"] = msg.COMPILE
+        self.last_err["OUTPUT"]  = msg.OUTPUT
+
+        if self.CONDITION == "control":
+            return
 
         if msg.type == msg.COMPILE:
-            self.last_err = msg
             error_msg = random.choice(COMPILATION_ERROR_POOL)
 
             p = re.compile(".cpp:(\d*):\d*: error: ([^\n]*)\n\s*\d*\s*\|\s*([^\n]*)")
@@ -149,71 +219,61 @@ class CopilotFeedback:
                 break
                     
             rospy.sleep(5.0)
-            rospy.loginfo(first_err_msg)
+            # rospy.loginfo(first_err_msg)
+            self.last_err["line"] = first_line_no
+            self.last_err["message"] = first_err_msg
             self.action_pub.publish(String("unsure"))
 
             if self.CONDITION == "copilot":
                 error_msg = "<s>It looks like on line %s there's an error: %s. Do you know how we can fix that?</s>" % (first_line_no, first_err_msg)
                 self.speech_pub.publish(String(error_msg))
                 rospy.sleep(2.0)
-                self.action_pub.publish(String("unsure"))
+            self.action_pub.publish(String("unsure"))
             
         elif msg.type == msg.SUCCESS:
-            self.last_err = msg
             self.action_pub.publish(String("celebrate"))
             speech = random.choice(SUCCESS_POOL)
             self.speech_pub.publish(String(speech))
 
         elif msg.type == msg.RUNTIME:
-            self.last_err = msg
             speech = random.choice(RUNTIME_ERROR_POOL)
+            self.action_pub.publish(String("unsure"))
             # print(msg.payload)
-            k = msg.payload.replace("'", '"')
-            payload_as_dict = json.loads(k)
-            line = payload_as_dict['frame']['line']
-            fn   = payload_as_dict['frame']['func']
-            sig  = payload_as_dict['signal-meaning'] 
-
-            rospy.sleep(5.0)
 
             if self.CONDITION == "copilot":
+                k = msg.payload.replace("'", '"')
+                payload_as_dict = json.loads(k)
+                line = payload_as_dict['frame']['line']
+                fn   = payload_as_dict['frame']['func']
+                sig  = payload_as_dict['signal-meaning'] 
+
+                self.last_err["line"] = line
+                self.last_err["function"] = fn
+                self.last_err["signal"] = sig
+
+                rospy.sleep(5.0)
+
                 speech += " On line %s in function %s, we got a %s." % (line, fn, sig)
                 speech += " I'm not sure why. What do you think?"
-            self.action_pub.publish(String("unsure"))
-            self.speech_pub.publish(String(speech))
-    
-    #         # function lookup
-    #         if fn != "main":
-    #             namespace = pg.declarations.get_global_namespace(self.latest_code_parsed)
-    #             for decl in namespace.declarations:
-    #                 if decl.name == fn and isinstance(decl, pg.declarations.free_function_t):
-    #                     args = decl.arguments
-    #                     if len(args) > 0:
-    #                         arg_names = " ".join([str(a.decl_type) + " " + a.name + "," for a in args])
-    #                         print(arg_names)
-    #                         speech = "Looks like the function takes " + arg_names + "  as arguments"
-
-    #                         self.speech_pub.publish(String(speech)) 
-    #                         rospy.sleep(3.0)
-
-    #     elif msg.type == msg.ONGOING:
-    #         if self.last_state != msg.ONGOING:
-    #             self.face_pub.publish(String("e_Joy.jpg"))
-    #             speech = "Awesome, it compiled ok! Now we can see how it runs."
-    #             self.speech_pub.publish(String(speech))
-    #             rospy.sleep(3.0)
-    #             self.face_pub.publish(String("e_DefaultContent.jpg"))
-
-        elif msg.type == msg.OUTPUT:
-            if self.last_state != msg.OUTPUT:
-                self.action_pub.publish(String("unsure"))
-                speech = random.choice(OUTPUT_ERROR_POOL)
-
-                if self.CONDITION == "copilot":
-                    speech += (" The test reads: " + msg.payload + ". ")
-                    speech += "Maybe we can look in the code for that test and see what should have happened."
                 self.speech_pub.publish(String(speech))
-                self.last_err = msg
+    
+        elif msg.type == msg.OUTPUT:
+            self.action_pub.publish(String("unsure"))
+            speech = random.choice(OUTPUT_ERROR_POOL)
+
+            if self.CONDITION == "copilot":
+                speech += (" The test reads: " + msg.payload + ". ")
+                speech += "Maybe we can look in the code for that test and see what should have happened."
+                
+                fn_capture = re.compile("ERROR: (\S*)")
+                fn_name = re.search(fn_capture, msg.payload).group(1)
+                
+                self.last_err["function"] = fn_name
+                rospy.sleep(2.0)
+                self.action_pub.publish(String("unsure"))
+
+            self.speech_pub.publish(String(speech))
+        self.last_speech_time = rospy.Time.now()
 
 if __name__ == "__main__":
     CopilotFeedback()

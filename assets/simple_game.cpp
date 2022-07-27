@@ -82,6 +82,9 @@ class TicTacToeGame {
         bool checkEmptySquare(int row, int col) {
             return (board[row][col] = ' ');
         }
+        char checkSquareValue(int row, int col) {
+            return board[row][col];
+        }
 };
 
 void testTicTacToe() {
@@ -99,11 +102,16 @@ void testTicTacToe() {
         cout << "TEST 1 ERROR: getPlayerName for both players, expected Ann & Marie, got " << p1 << " and " << p2 << endl;
     }
 
-    // TEST 2: testing placeChar and printBoard
+    // TEST 2: testing placeChar
     game.placeChar('x', 5, 1);
     game.placeChar('x', 1, 1);
     game.placeChar('o', 1, 1);
-    cout << "(Board for Test 2: should contain only an x in the middle, check for yourself that the board is correct.)" << endl;
+    
+    if(game.checkSquareValue(1, 1) != 'x' || game.checkSquareValue(5, 1) == 'x') {
+        cout << "TEST 2 ERROR: placeChar placed one or more chars incorrectly. \
+            Expected only an x in position (1, 1)" << endl;
+    }
+    cout << "(Board for Test 2 using printBoard: should contain only an x in the middle, check for yourself that the board is correct.)" << endl;
     game.printBoard();
 
     // TEST 3: testing checkFull
@@ -136,6 +144,19 @@ int main() {
     testTicTacToe();
     return 0;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
