@@ -24,10 +24,10 @@ DELTA_MIN = 0.1
 
 SPOKEN_BACKCHANNELS = [
     "I see.",
-    "Hmmmm.",
     "Oh.",
     "I think I follow.",
-    "Interesting."
+    "Interesting.",
+    "Right"
 ]
 
 class GazeFollower:

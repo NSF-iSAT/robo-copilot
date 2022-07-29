@@ -27,9 +27,10 @@ class TicTacToeGame {
             switch (player_num) {
                 case 1:
                     name = player1_name;
-                    break;
+                    
                 case 2:
                     name = player2_name;
+                    break;
             }
             return name;
         }
@@ -44,7 +45,7 @@ class TicTacToeGame {
 
         void placeChar(char c, int row, int col) {
             if (checkEmptySquare(row, col)) {
-                board[row][col] = c;
+                board[col][row] = c;
             }
         }
 
@@ -83,7 +84,7 @@ class TicTacToeGame {
             return (filled_squares >= 8);
         }
         bool checkEmptySquare(int row, int col) {
-            return (board[row][col] == ' ');
+            return (board[row][col] = ' ');
         }
         char checkSquareValue(int row, int col) {
             return board[row][col];
@@ -108,7 +109,7 @@ void testTicTacToe() {
     }
 
     // TEST 2: testing placeChar some more
-    // 2ish bugs: placeChar var swap, initialization
+    // 2ish bugs
     game.placeChar('x', 0, 1);
     if(game.checkSquareValue(0, 1) != 'x') {
         cout << "TEST 2 ERROR: placeChar didn't properly place a character." << endl;
@@ -116,7 +117,7 @@ void testTicTacToe() {
     }
 
     // TEST 3: testing checkEmptySquare
-    // 1 bug (== vs =)
+    // 2 bugs
     game.placeChar('x', 1, 0);
     if(game.checkEmptySquare(1, 0)) {
         cout << "TEST 3 ERROR: checkEmptySquare returned true when it shouldn't have" << endl;
@@ -124,7 +125,7 @@ void testTicTacToe() {
     }
 
     // TEST 4: testing checkFull
-    // 1 bug (missing variable update)
+    // 1 bug
     game.placeChar('o', 0, 0);
     game.placeChar('x', 0, 1);
     game.placeChar('x', 0, 2);
@@ -140,13 +141,11 @@ void testTicTacToe() {
     }
 
     // TESTS 5-6: testing checkWin
-    // 1 bug: || instead of &&
     if(!game.checkWin('x') || game.checkWin('o')) {
         cout << "TEST 5 ERROR: checkWin returned an incorrect value (expected x wins, o loses)" << endl;
         game.printBoard();
     }
 
-    //  1 bug: incorrect loop condition
     TicTacToeGame game2 = TicTacToeGame("me", "you");
     game2.placeChar('o', 2, 0);
     game2.placeChar('o', 2, 1);
