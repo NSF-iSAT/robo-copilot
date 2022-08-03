@@ -56,14 +56,14 @@ class CppEditorNode:
     def __init__(self):            
         # set up ros bindings
         rospy.init_node('cpp_editor_node')
-        # self.code_pub = rospy.Publisher('cpp_editor_node/text', String, queue_size=1)
+        self.code_pub = rospy.Publisher('cpp_editor_node/text', String, queue_size=1)
         self.test_pub = rospy.Publisher('cpp_editor_node/test', Debug, queue_size=1)
 
         self.tk     = Tk()
         self.output = OutputWindow(Toplevel(), self.run_test)
         self.test_count = 0
 
-        self.filename = "/home/kaleb/code/ros_ws/src/robo_copilot/assets/simple_game.cpp"
+        self.filename = "/home/kaleb/code/ros_ws/src/robo_copilot/assets/simple_game_task copy.cpp"
 
         self.in_debug = False
         self.gdbmi    = None
@@ -83,15 +83,18 @@ class CppEditorNode:
 
     def run_test(self):
         self.test_result = None
-        if self.in_debug:
-            self.gdbmi.exit()
-        
         self.test_count += 1
         
         cpp_file = self.filename
         binary_file = os.path.join(
             os.path.dirname(self.filename), "tmp.out"
         )
+
+        # publish cpp file contents for logging purposes
+        with open(cpp_file, 'r') as code_file:
+            code = code_file.read()
+            self.code_pub.publish(String(code))
+
         
         self.output.place_text("\n----------------\nTest #{}: testing {}".format(  self.test_count,
                 os.path.basename(self.filename)))

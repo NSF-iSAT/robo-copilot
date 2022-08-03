@@ -9,9 +9,9 @@ import json
 
 CODE_KEYWORD_DICT = {
     "getPlayerName" : "It looks like there's a switch statement in that get player name function. Can you explain how that should work?",
-    "placeChar"     : "Looks like that place char function has a lot of conditionals. What do those do?",
-    "checkWin"      : "Looks like the check Win function has a lot of conditionals. What is that function trying to do?",
-    "checkFull"     : "Hm, can you explain how the checkFull function works?",
+    "placeChar"     : "Looks like that place char function has just a single if statement, then does something in the body. What do you think it's doing?",
+    "checkWin"      : "Looks like the check Win function has a for loop, and lots of conditionals. What are all those for?",
+    "checkFull"     : "Hm, how does the checkFull function decide whether the board is full?",
     "checkEmptySquare" : "How is the check empty square function supposed to work?"
 }
 
@@ -83,13 +83,13 @@ RUNTIME_ERROR_POOL = [
 ]
 
 OUTPUT_ERROR_POOL = [
-    "Aw, it compiled okay but ran into a test error. ",
-    "It looks like the code ran but might have failed one of the built-in tests. ",
-    "The code compiled and ran, but it looks like the output it produced wasn't quite right. "
+    "Aw, our code compiled okay but ran into a test error. ",
+    "It looks like we might have failed one of the built-in tests. ",
+    "Our code compiled and ran, but it looks like the output it produced wasn't quite right yet. "
 ]
 
 SUCCESS_POOL = [
-    "It compiled and ran, that's great! Is the output what you were expecting? It looks good to me!"
+    "You passed all the tests, that's amazing! Great work!"
 ]
 
 THINKALOUD_PROMPTS_GENERIC = [
@@ -119,7 +119,7 @@ class CopilotFeedback:
         self.last_msg_time = rospy.Time(0.0)
         self.last_err   = None
 
-        self.speaking_timeout = rospy.Duration(20.0)
+        self.speaking_timeout = rospy.Duration(10.0)
         self.last_speech_time = rospy.Time.now()
 
         rospy.Subscriber("/cpp_editor_node/test", Debug, self.test_cb)
@@ -159,7 +159,7 @@ class CopilotFeedback:
     def thinkaloud_prompt(self):
         if self.last_err is None:
             return
-        elif self.CONDITION != "copilot" or self.code_latest is None:
+        elif self.CONDITION != "copilot":
             self.speech_pub.publish(String(random.choice(THINKALOUD_PROMPTS_GENERIC)))
         else:
             # # base prompt on latest error
@@ -269,10 +269,11 @@ class CopilotFeedback:
                 fn_name = re.search(fn_capture, msg.payload).group(1)
                 
                 self.last_err["function"] = fn_name
-                rospy.sleep(2.0)
-                self.action_pub.publish(String("unsure"))
+                # rospy.sleep(2.0)
+                # self.action_pub.publish(String("unsure"))
 
             self.speech_pub.publish(String(speech))
+            self.face_pub.publish(String("e_SystemGearPrompt.jpg"))
         self.last_speech_time = rospy.Time.now()
 
 if __name__ == "__main__":
