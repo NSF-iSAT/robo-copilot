@@ -1,6 +1,5 @@
 import subprocess
 import os
-from pprint import pprint
 from tkinter import *
 import tkinter.filedialog as fd
 import tkinter.messagebox as mb
@@ -60,7 +59,7 @@ class CppEditorNode:
         self.test_pub = rospy.Publisher('cpp_editor_node/test', Debug, queue_size=1)
 
         self.tk     = Tk()
-        self.output = OutputWindow(Toplevel(), self.run_test)
+        self.output = OutputWindow(self.tk, self.run_test)
         self.test_count = 0
 
         self.filename = "/home/kaleb/code/ros_ws/src/robo_copilot/assets/simple_game_task copy.cpp"

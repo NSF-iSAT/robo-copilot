@@ -5,5 +5,6 @@ docker run \
 	-e DISPLAY=${DISPLAY} \
 	-v /tmp/.X11-unix:/tmp/.X11-unix \
 	--env="QT_X11_NO_MITSHM=1" \
+	--device /dev/snd:/dev/snd \
     robo_copilot
 xhost -local:root
