@@ -18,6 +18,7 @@ RUN apt-get install ffmpeg libsm6 libxext6  -y
 RUN apt-get install -y python3-tk
 RUN apt-get install -y ros-noetic-cv-bridge && apt-get install -y ros-noetic-vision-opencv
 RUN apt-get install -y libasound-dev portaudio19-dev libportaudio2 libportaudiocpp0
+RUN apt-get install -y featherpad
 
 USER ros
 RUN mkdir -p ~/ros_ws/src
@@ -47,9 +48,9 @@ RUN mkdir robo_copilot
 COPY . robo_copilot/
 RUN source /opt/ros/noetic/setup.bash && cd /home/ros/ros_ws && catkin_make
 RUN cd robo_copilot && pip install -r requirements.txt
-RUN cp robo_copilot/ros-speech2text-google-stt-cred.json ros_speech2text/ 
+RUN cp robo_copilot/ros-speech2text-google-stt-cred.json ros_speech2text/
 
 ENTRYPOINT ["/bin/ros-entrypoint.sh"]
 
 EXPOSE 5000
-CMD ["roslaunch", "robo_copilot", "copilot_demo.launch", "use_av:=false"]
+CMD ["roslaunch", "robo_copilot", "copilot_demo.launch"]
