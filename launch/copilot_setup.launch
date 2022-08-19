@@ -1,0 +1,22 @@
+<launch>
+    <arg name="use_robot"           default="true"/>
+    <arg name="camera_topic"        default="/misty/id_0/camera/color/image_raw"/>
+    
+    <arg name="use_s2t"             default="true"/>
+    <arg name="audio_device_idx"    default="7"/>
+    <arg name="audio_rate"          default="16000"/>
+
+    <group if="$(arg use_robot)">
+        <include file="$(find misty_wrapper)/launch/misty.launch" pass_all_args="true"></include>
+        <node pkg="gaze_tracking_ros" type="gaze_tracker.py" name="gaze_tracker">
+            <remap from="image_raw" to="$(arg camera_topic)" />
+        </node>
+    </group>
+
+    <group if="$(arg use_s2t)">
+        <include file="$(find ros_speech2text)/launch/ros_speech2text.launch" pass_all_args="true"/>
+    </group>
+
+    <node name="cpp_editor_node" pkg="robo_copilot" type="tk_editor.py" output="screen"/>
+
+</launch>

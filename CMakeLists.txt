@@ -190,7 +190,8 @@ catkin_install_python(PROGRAMS
 ## Mark other files for installation (e.g. launch and bag files, etc.)
 install(FILES
   # myfile1
-  launch/copilot_demo.launch
+  launch/copilot_app.launch
+  launch/copilot_setup.launch
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 

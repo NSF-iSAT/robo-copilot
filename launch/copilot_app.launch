@@ -1,0 +1,12 @@
+<launch>
+    <!-- condition: copilot, listener, or control -->
+    <arg name="condition" default="copilot"/>
+
+    <group unless="$(eval condition == 'control')">
+        <node name="gaze_follower" pkg="robo_copilot" type="gaze_follower.py" output="screen"/>
+        <node name="feedback_gen" pkg="robo_copilot" type="feedback_gen.py" output="screen"> -->
+            <param name="condition" value="$(arg condition)"/>
+        </node>
+    </group>
+
+</launch>

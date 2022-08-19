@@ -48,10 +48,10 @@ RUN git clone https://github.com/kalebishop/google_tts.git \
 # copy this package & build
 RUN mkdir robo_copilot
 COPY . robo_copilot/
-RUN source /opt/ros/noetic/setup.bash && cd /home/ros/ros_ws && catkin_make
 RUN cd robo_copilot && pip install -r requirements.txt
+RUN source /opt/ros/noetic/setup.bash && cd /home/ros/ros_ws && catkin_make
 RUN cp robo_copilot/ros-speech2text-google-stt-cred.json ros_speech2text/
-RUN cd robo_copilot && chmod +x run-task.sh run-misty.sh record-data.sh
+RUN cd robo_copilot && chmod +x run-task.sh run-misty-copilot.sh record-data.sh
 
 WORKDIR /home/ros/ros_ws/src/robo_copilot
 ENTRYPOINT ["/bin/ros-entrypoint.sh"]
