@@ -85,7 +85,7 @@ class TicTacToeGame {
                 otherwise return false */
 
             // check for 3 in a row horizontally and vertically
-            for (int i = 0; i < 2; i++) {
+            for (int i = 0; i < 3; i++) {
                 if (board[i][0] == c && board[i][1] == c && board[i][2] == c) {
                     return true;
                 } else if (board[0][i] == c && board[1][i] == c && board[2][i] == c) {
@@ -101,6 +101,15 @@ class TicTacToeGame {
             }
             return false;
         }
+
+        void clearBoard() {
+            /* clear the board by replacing all entries with spaces */
+            for (int i = 0; i < 3; i++) {
+                for (int i = 0; i < 3; i++) {
+                    board[i][i] = ' ';
+                }
+            }
+        }
 };
 
 void testTicTacToe() {
@@ -113,7 +122,6 @@ void testTicTacToe() {
     TicTacToeGame game = TicTacToeGame("Ann", "Marie");
 
     // TEST 1: name getting and setting
-    // switch statement
     string p1 = game.getPlayerName(1);
     string p2 = game.getPlayerName(2);
     if(p1 != "Ann"|| p2 != "Marie") {
@@ -155,6 +163,24 @@ void testTicTacToe() {
         game.printBoard();
     }
 
+    // TEST 6: testing clearBoard
+    game.clearBoard();
+    if(game.checkFull()) {
+        cout << "TEST 6 ERROR: clearBoard didn't clear the board" << endl;
+    }
+
+    // TEST 7: testing checkWin some more
+    game.placeChar('x', 0, 0);
+    game.placeChar('x', 1, 2);
+    game.placeChar('o', 2, 0);
+    game.placeChar('o', 2, 1);
+    game.placeChar('o', 2, 2);
+
+    if(!game.checkWin('o') || game.checkWin('x')) {
+        cout << "TEST 7 ERROR: checkWin returned an incorrect value (expected o wins, x loses)" << endl;
+        game.printBoard();
+    }
+    
     
     // END OF DO-NOT-MODIFY ----------------------
 }
