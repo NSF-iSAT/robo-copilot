@@ -3,36 +3,46 @@ import time
 import sounddevice as sd
 import numpy as np # required to avoid crashing in assigning the callback input which is a numpy object
 import webrtcvad
-
 import rospy
 
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, String
+from robo_copilot.msg import Speech
 
 class VADNode:
     def __init__(self):
+        rospy.init_node('vad_node', anonymous=True)
+
+        self.audio_idx          = rospy.get_param('~audio_idx', 10)
+        self.sample_rate        = rospy.get_param('~sample_rate', 48000)
+        self.vad_filter_level   = rospy.get_param('~vad_filter_level', 3)
+
         channels = [2]
         self.mapping = [c - 1 for c in channels]
 
-        self.device_info = sd.query_devices(11, 'input')
+        print("Using audio device: " + str(sd.query_devices(self.audio_idx, 'input')))
+        print("Available audio devices: ")
+        print(sd.query_devices())
+        self.device_info = sd.query_devices(self.audio_idx, 'input')
         # self.sample_rate = int(self.device_info['default_samplerate'])
-        self.sample_rate = 48000
         self.interval_size = 30 # audio interval size in ms
         self.downsample = 1
 
         self.block_size = self.sample_rate * self.interval_size / 1000
-        self.vad = webrtcvad.Vad(1)
+        self.vad = webrtcvad.Vad(self.vad_filter_level)
 
-        self.pub = rospy.Publisher('/vad/speech_detected', Bool, queue_size=1)
-        rospy.init_node('vad_node', anonymous=True)
+        self.utterance_timeout = rospy.Duration(1.0)
+        self.is_speaking = False
+
+        self.detect_pub    = rospy.Publisher('/vad/speech_detected', Bool, queue_size=1)
+        self.utterance_pub = rospy.Publisher('/vad/utterance', String, queue_size=1)
 
         with sd.InputStream(
-            device=11,
+            device=10,
             channels=max(channels),
             samplerate=self.sample_rate,
             blocksize=int(self.block_size),
             callback=self.audio_callback):
 
-            print("reading audio stream from default audio input device:\n" + str(sd.query_devices()) + '\n')
             print(F"audio input channels to process: {channels}")
             print(F"sample_rate: {self.sample_rate}")
             print(F"window size: {self.interval_size} ms")
@@ -62,7 +72,17 @@ class VADNode:
         audio_data = audio_data.tobytes()
         detection = self.voice_activity_detection(audio_data)
         print(f'{detection} \r', end="") # use just one line to show the detection status (speech / not-speech)
-        self.pub.publish(detection)
+        self.detect_pub.publish(detection)
+        if detection:
+            self.last_heard = rospy.Time.now()
+            if not self.is_speaking:
+                self.is_speaking = True
+                self.utterance_pub.publish(String("STARTED"))
+
+        elif self.is_speaking and (rospy.Time.now() - self.last_heard) > self.utterance_timeout:
+            self.utterance_pub.publish(String("STOPPED"))
+            self.is_speaking = False
+
 
 
 if __name__ == "__main__":
