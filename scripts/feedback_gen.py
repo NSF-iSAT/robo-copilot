@@ -119,12 +119,15 @@ class CopilotFeedback:
         self.last_msg_time = rospy.Time(0.0)
         self.last_err   = None
 
-        self.speaking_timeout = rospy.Duration(10.0)
+        self.speaking_timeout = rospy.Duration(20.0)
         self.last_speech_time = rospy.Time.now()
 
         rospy.Subscriber("/cpp_editor_node/test", Debug, self.test_cb)
         rospy.Subscriber("/cpp_editor_node/text", String, self.code_cb)
         rospy.Subscriber("/speech_to_text/log", Event, self.speaking_cb)
+
+        # TODO uncomment
+        self.startup()
 
         while not rospy.is_shutdown():
             if not self.is_listening and rospy.Time.now() - self.last_speech_time > self.speaking_timeout:
@@ -138,7 +141,7 @@ class CopilotFeedback:
         startup_msg = """
             Hi there! I'm Misty. <s>I'm trying to debug this C plus plus program I found to make
             a tic tac toe game.</s> <s>But, it has a lot of problems and I don't know that much about programming.</s>
-            <s>Could you help me fix the bugs?</s>
+            <s>Could you help me fix the bugs, and explain how you do it?</s>
             """
         rospy.sleep(6.0)
         self.face_pub.publish(String("e_Joy.jpg"))
