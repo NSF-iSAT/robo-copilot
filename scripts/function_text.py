@@ -1,8 +1,9 @@
+
 CODE_KEYWORD_DICT = {
     "getPlayerName" : "It looks like there's a switch statement in that get player name function. Can you explain how that should work?",
-    "placeChar"     : "Looks like that place char function has a lot of conditionals. What do those do?",
-    "checkWin"      : "Looks like the check Win function has a lot of conditionals. What is that function trying to do?",
-    "checkFull"     : "Hm, can you explain how the checkFull function works?",
+    "placeChar"     : "Looks like that place char function has just a single if statement, then does something in the body. What do you think it's doing?",
+    "checkWin"      : "Looks like the check Win function has a for loop, and lots of conditionals. What are all those for?",
+    "checkFull"     : "Hm, how does the checkFull function decide whether the board is full?",
     "checkEmptySquare" : "How is the check empty square function supposed to work?"
 }
 
@@ -62,3 +63,29 @@ FUNCTION_DICT = {
     "checkFull" : "return (filled_squares >= 8);",
     "checkEmptySquare" : "return (board[row][col] = ' ');"
 }
+COMPILATION_ERROR_POOL = [
+    "We got a compilation error. Can we take a look?",
+    "Looks like it didn't compile. Let's see what it says.",
+    "Oh, it looks like it didn't compile that time. Let's see what the error was."
+]
+
+RUNTIME_ERROR_POOL = [
+    "It compiled right, but we got an error at runtime. Let's see the debugger output.",
+    "Hmmm... it looks like the code had an error when it ran. Let's see."
+]
+
+OUTPUT_ERROR_POOL = [
+    "Aw, our code compiled okay but ran into a test error. ",
+    "It looks like we might have failed one of the built-in tests. ",
+    "Our code compiled and ran, but it looks like the output it produced wasn't quite right yet. "
+]
+
+SUCCESS_POOL = [
+    "You passed all the tests, that's amazing! Great work!"
+]
+
+THINKALOUD_PROMPTS_GENERIC = [
+    "Can you tell me what you're thinking?",
+    "What do you think the next step is?",
+    "Can you explain your current process to me?"
+]

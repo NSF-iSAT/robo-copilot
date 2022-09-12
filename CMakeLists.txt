@@ -164,6 +164,7 @@ catkin_install_python(PROGRAMS
   scripts/gaze_follower.py
   scripts/tk_editor.py
   scripts/feedback_gen.py
+  scripts/vad_node.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

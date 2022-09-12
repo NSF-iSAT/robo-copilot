@@ -14,7 +14,8 @@
     </group>
 
     <group if="$(arg use_s2t)">
-        <include file="$(find ros_speech2text)/launch/ros_speech2text.launch" pass_all_args="true"/>
+        <!-- <include file="$(find ros_speech2text)/launch/ros_speech2text.launch" pass_all_args="true"/> -->
+        <node pkg="robo_copilot" type="vad_node.py" name="vad"/>
     </group>
 
     <node name="cpp_editor_node" pkg="robo_copilot" type="tk_editor.py" output="screen"/>

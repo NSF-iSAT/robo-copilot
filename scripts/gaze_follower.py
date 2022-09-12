@@ -54,12 +54,8 @@ class GazeFollower:
         self.utterance_start = rospy.Time.now()
 
         # pubs and subs
-        gaze_sub = rospy.Subscriber("/gaze_state", GazeState, self.gaze_callback)
-        speech_sub = rospy.Subscriber("speech_to_text/log", Event, self.speaking_callback)
         self.head_pub = rospy.Publisher("/misty/id_0/head", MoveHead, queue_size=1)
-        self.face_pub = rospy.Publisher("/misty/id_0/face_img", String, queue_size=1)
-        self.arms_pub = rospy.Publisher("/misty/id_0/arms", MoveArms, queue_size=1)
-        self.speech_pub = rospy.Publisher("/misty/id_0/speech", String, queue_size=1)
+        gaze_sub = rospy.Subscriber("/gaze_state", GazeState, self.gaze_callback)
 
         # reset head position
         rospy.sleep(5)
