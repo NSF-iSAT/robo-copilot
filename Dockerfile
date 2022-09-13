@@ -18,7 +18,7 @@ RUN apt-get install ffmpeg libsm6 libxext6  -y
 RUN apt-get install -y python3-tk
 RUN apt-get install -y ros-noetic-cv-bridge && apt-get install -y ros-noetic-vision-opencv
 RUN apt-get install -y libasound-dev portaudio19-dev libportaudio2 libportaudiocpp0
-RUN apt-get update && apt-get install -y featherpad
+RUN apt-get update && apt-get install -y featherpad gdb
 
 USER ros
 RUN mkdir -p ~/ros_ws/src
@@ -39,9 +39,7 @@ WORKDIR /home/ros/ros_ws/src
 # Add cloning of any ROS packages
 RUN git clone https://github.com/tim-fan/gaze_tracking_ros.git
 RUN git clone https://github.com/NSF-iSAT/misty_wrapper.git \
-    && cd misty_wrapper && pip install -r requirements.txt
-RUN git clone https://github.com/HIRO-group/ros_speech2text.git \
-    && cd ros_speech2text && git checkout ros-noetic && pip install -r requirements.txt
+    && cd misty_wrapper && git checkout devel && pip install -r requirements.txt
 RUN git clone https://github.com/kalebishop/google_tts.git \
     && cd google_tts && pip install -r requirements.txt
 
@@ -50,7 +48,6 @@ RUN mkdir robo_copilot
 COPY . robo_copilot/
 RUN cd robo_copilot && pip install -r requirements.txt
 RUN source /opt/ros/noetic/setup.bash && cd /home/ros/ros_ws && catkin_make
-RUN cp robo_copilot/ros-speech2text-google-stt-cred.json ros_speech2text/
 RUN cd robo_copilot && chmod +x run-task.sh run-misty-copilot.sh record-data.sh
 
 WORKDIR /home/ros/ros_ws/src/robo_copilot

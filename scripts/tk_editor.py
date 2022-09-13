@@ -62,7 +62,7 @@ class CppEditorNode:
         self.output = OutputWindow(self.tk, self.run_test)
         self.test_count = 0
 
-        self.filename = "/home/kaleb/code/ros_ws/src/robo_copilot/assets/simple_game_task.cpp"
+        self.filename = "/data/task_copy.cpp"
 
         self.in_debug = False
         self.gdbmi    = None

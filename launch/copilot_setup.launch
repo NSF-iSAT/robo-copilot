@@ -6,6 +6,8 @@
     <arg name="audio_device_idx"    default="7"/>
     <arg name="audio_rate"          default="16000"/>
 
+    <arg name="google_auth_path"    default="$(find robo_copilot)/google_auth.json"/>
+
     <group if="$(arg use_robot)">
         <include file="$(find misty_wrapper)/launch/misty.launch" pass_all_args="true"></include>
         <!-- <node pkg="gaze_tracking_ros" type="gaze_tracker.py" name="gaze_tracker">
@@ -15,7 +17,9 @@
 
     <group if="$(arg use_s2t)">
         <!-- <include file="$(find ros_speech2text)/launch/ros_speech2text.launch" pass_all_args="true"/> -->
-        <node pkg="robo_copilot" type="vad_node.py" name="vad"/>
+        <node pkg="robo_copilot" type="vad_node.py" name="vad">
+            <param name="audio_device_idx" value="$(arg audio_device_idx)"/>
+        </node>
     </group>
 
     <node name="cpp_editor_node" pkg="robo_copilot" type="tk_editor.py" output="screen"/>
