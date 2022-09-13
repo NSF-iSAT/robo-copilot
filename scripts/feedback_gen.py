@@ -18,8 +18,8 @@ class CopilotFeedback:
         self.face_pub   = rospy.Publisher("/misty/id_0/face_img", String, queue_size=1)
         self.action_pub = rospy.Publisher("/misty/id_0/action", String, queue_size=1)
         
-        # TODO uncommment when running for real
         self.CONDITION = rospy.get_param("~condition")
+        # TODO uncommment when running for real
         # self.startup()
 
         self.is_listening = False
