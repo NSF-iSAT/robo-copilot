@@ -12,13 +12,14 @@ class VADNode:
     def __init__(self):
         rospy.init_node('vad_node', anonymous=True)
 
-        self.audio_idx          = rospy.get_param('~audio_idx', 7)
+        self.audio_idx          = rospy.get_param('~audio_idx', 6)
         self.sample_rate        = rospy.get_param('~sample_rate', 48000)
         self.vad_filter_level   = rospy.get_param('~vad_filter_level', 3)
 
         channels = [2]
         self.mapping = [c - 1 for c in channels]
 
+        rospy.loginfo("Available audio devices: \n" + str(sd.query_devices()))
         rospy.loginfo("Using audio device: " + str(sd.query_devices(self.audio_idx, 'input')))
         rospy.loginfo("Available audio devices: ")
         rospy.loginfo(sd.query_devices())

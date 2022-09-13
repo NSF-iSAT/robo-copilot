@@ -62,7 +62,7 @@ class CppEditorNode:
         self.output = OutputWindow(self.tk, self.run_test)
         self.test_count = 0
 
-        self.filename = "/home/kaleb/code/ros_ws/src/robo_copilot/assets/simple_game_task copy.cpp"
+        self.filename = "/home/kaleb/code/ros_ws/src/robo_copilot/assets/simple_game_task.cpp"
 
         self.in_debug = False
         self.gdbmi    = None
@@ -135,8 +135,9 @@ class CppEditorNode:
                 if "ERROR" in item["payload"] and self.test_result is None:
                     self.test_result = msg.OUTPUT
                     msg.type = msg.OUTPUT
-                    msg.payload = item["payload"]
-                    self.test_pub.publish(msg)
+                    # msg.payload = item["payload"]
+                    # self.test_pub.publish(msg)
+                msg.payload += str(item["payload"])
 
             elif item["type"] == "console":
                 gdb_output += item["payload"]
@@ -147,12 +148,12 @@ class CppEditorNode:
                     if item["payload"]["reason"] != "exited-normally":
                         self.test_result = msg.RUNTIME
                         msg.type = msg.RUNTIME
-                        msg.payload = str(item["payload"])
+                        msg.payload += str(item["payload"])
 
-                    self.test_pub.publish(msg)
+                self.test_pub.publish(msg)
                 return False
 
-        msg.type = msg.ONGOING
+        # msg.type = msg.ONGOING
         msg.payload = ""
         msg.stdout = program_output
         msg.stderr = gdb_output

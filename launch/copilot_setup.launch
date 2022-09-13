@@ -8,9 +8,9 @@
 
     <group if="$(arg use_robot)">
         <include file="$(find misty_wrapper)/launch/misty.launch" pass_all_args="true"></include>
-        <node pkg="gaze_tracking_ros" type="gaze_tracker.py" name="gaze_tracker">
+        <!-- <node pkg="gaze_tracking_ros" type="gaze_tracker.py" name="gaze_tracker">
             <remap from="image_raw" to="$(arg camera_topic)" />
-        </node>
+        </node> -->
     </group>
 
     <group if="$(arg use_s2t)">
