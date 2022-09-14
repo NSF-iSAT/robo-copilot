@@ -11,14 +11,6 @@ import re
 import json
 
 
-FUNCTION_DICT = {
-    "getPlayerName" : "It looks like there's a switch statement in that get player name function. Can you explain how that should work?",
-    "placeChar"     : "Looks like that place char function has just a single if statement, then does something in the body. What do you think it's doing?",
-    "checkWin"      : "Looks like the check Win function has a for loop, and lots of conditionals. What are all those for?",
-    "checkFull"     : "Hm, how does the checkFull function decide whether the board is full?",
-    "checkEmptySquare" : "What is the check empty square function returning?"
-}
-
 FUNCTIONS = ["getPlayerName",
              "placeChar",
              "checkEmptySquare",
@@ -26,6 +18,30 @@ FUNCTIONS = ["getPlayerName",
              "checkWin",
              "clearBoard",
              "checkWin"]
+
+FUNCTION_PROMPT_DICT = {
+    "getPlayerName" : ["It looks like there's a switch statement in that get player name function. Can you explain how that should work?",
+                        "Can you talk me through the switch statement in the getPlayerName function?",
+                        "What do you think might cause the function to return the wrong name?",
+                        "Is there anything in the function that would cause it to return the wrong name?"],
+    "placeChar"     : ["What is the board array representing, and how is it set up?",
+                        "How does the placeChar function try to change the value in the array?",
+                        "Looks like that place char function has just a single line where it accesses the array. What do you think it's doing?"],
+    "checkWin"      : ["How do the for loop and the if statements work together?",
+                        "Can you explain how the function checks for a win?",
+                        "How does the check Win function check the different ways someone could win?",
+                        "The check Win function has a for loop, and lots of conditionals. What are all those for?"],
+    "checkFull"     : ["Hm, how does the checkFull function decide whether the board is full?",
+                        "How can we know how many squares in the board are full?",
+                        "Can you explain to me how the class stores the info of how many squares were filled?"],
+    "checkEmptySquare" : ["What is the check empty square function returning?",
+                            "How does the program know that a particular square is empty?",
+                            "Can you explain how the value of the square is stored?"
+                        ],
+    "clearBoard"    : ["How does that function clear out the board?",
+                        "Can you explain what the loops in the clear board function are doing?",
+                        "How does the clear board function mark all the squares as empty?"]
+}
 
 SINGLE_SUCCESS_POOL = [
     "Great, it looks like you fixed an error! Make sure to think aloud as you move on to the next one.",
@@ -136,10 +152,15 @@ class BaseSupportBot:
 
     def startup(self):
         rospy.sleep(2.0)
+        self.last_utterance_end = rospy.Time.now()
         msg = "Hi there! My name is Misty. I'm trying to learn more about how programmers find and fix bugs in C plus plus code.\
                 Can we complete this debugging task together so I can learn?"
         # msg = "this is a test."
         self.speech_pub.publish(String(msg))
+        self.action_pub.publish("tilt")
+        rospy.sleep(2.0)
+        self.action_pub.publish("waggle")
+        self.last_utterance_end = rospy.Time.now()
 
     def spin(self):
         while not rospy.is_shutdown():
@@ -178,6 +199,19 @@ class BaseSupportBot:
             self.action_pub.publish("look")
 
 class CopilotSupportBot(BaseSupportBot):
+
+    def prompt(self):
+        if self.last_errors is None:
+            msg = String(random.choice(THINKALOUD_PROMPTS_GENERIC))
+            self.speech_pub.publish(msg)
+            self.action_pub.publish(String("tilt"))
+
+        else:
+            last_err_fn = FUNCTIONS[self.last_errors[0] - 1]
+            msg = String(random.choice(FUNCTION_PROMPT_DICT[last_err_fn]))
+            self.speech_pub.publish(msg)
+            self.action_pub.publish(String("tilt"))
+
     def code_test_cb(self, msg):
         self.last_utterance_end = rospy.Time.now()
 
@@ -207,15 +241,14 @@ class CopilotSupportBot(BaseSupportBot):
                 error_no = errors[0]
                 fn_name = FUNCTIONS[error_no-1]
         
-
                 rospy.sleep(2.0)
                 # cue_msg = random.choice(FUNCTION_DICT[fn_name])
-                # TODO add more messages to avoid repetition
-                cue_msg = FUNCTION_DICT[fn_name]
+                cue_msg = random.choice(FUNCTION_PROMPT_DICT[fn_name])
                 self.speech_pub.publish(String(cue_msg))
                 self.action_pub.publish("tilt")
             
             self.last_errors = errors
+            self.last_utterance_end = rospy.Time.now()
 
         elif msg.type == msg.COMPILE:
             error_msg = random.choice(COMPILATION_ERROR_POOL)
