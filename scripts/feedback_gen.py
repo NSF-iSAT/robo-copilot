@@ -135,8 +135,11 @@ class BaseSupportBot:
             
 
     def startup(self):
+        rospy.sleep(2.0)
         msg = "Hi there! My name is Misty. I'm trying to learn more about how programmers find and fix bugs in C plus plus code.\
                 Can we complete this debugging task together so I can learn?"
+        # msg = "this is a test."
+        self.speech_pub.publish(String(msg))
 
     def spin(self):
         while not rospy.is_shutdown():
