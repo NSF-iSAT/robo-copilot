@@ -11,7 +11,7 @@ import re
 import json
 
 
-CODE_KEYWORD_DICT = {
+FUNCTION_DICT = {
     "getPlayerName" : "It looks like there's a switch statement in that get player name function. Can you explain how that should work?",
     "placeChar"     : "Looks like that place char function has just a single if statement, then does something in the body. What do you think it's doing?",
     "checkWin"      : "Looks like the check Win function has a for loop, and lots of conditionals. What are all those for?",
@@ -205,11 +205,13 @@ class CopilotSupportBot(BaseSupportBot):
                 self.speech_pub.publish(String(speech))
 
                 error_no = errors[0]
-                fn_name = FUNCTIONS[error_no]
+                fn_name = FUNCTIONS[error_no-1]
         
+
+                rospy.sleep(2.0)
                 # cue_msg = random.choice(FUNCTION_DICT[fn_name])
                 # TODO add more messages to avoid repetition
-                cue_msg = random.choice(FUNCTION_DICT[fn_name])
+                cue_msg = FUNCTION_DICT[fn_name]
                 self.speech_pub.publish(String(cue_msg))
                 self.action_pub.publish("tilt")
             
