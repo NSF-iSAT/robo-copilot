@@ -16,7 +16,7 @@ FUNCTION_DICT = {
     "placeChar"     : "Looks like that place char function has just a single if statement, then does something in the body. What do you think it's doing?",
     "checkWin"      : "Looks like the check Win function has a for loop, and lots of conditionals. What are all those for?",
     "checkFull"     : "Hm, how does the checkFull function decide whether the board is full?",
-    "checkEmptySquare" : "How is the check empty square function supposed to work?"
+    "checkEmptySquare" : "What is the check empty square function returning?"
 }
 
 FUNCTIONS = ["getPlayerName",
