@@ -19,65 +19,19 @@ CODE_KEYWORD_DICT = {
     "checkEmptySquare" : "How is the check empty square function supposed to work?"
 }
 
+FUNCTIONS = ["getPlayerName",
+             "placeChar",
+             "checkEmptySquare",
+             "checkFull",
+             "checkWin",
+             "clearBoard",
+             "checkWin"]
+
 SINGLE_SUCCESS_POOL = [
-    "Great, it looks like you fixed an error! Make sure to think aloud as you move on to the next one."
+    "Great, it looks like you fixed an error! Make sure to think aloud as you move on to the next one.",
+    "Nice job, looks like you corrected an error! Try to use think aloud as you tackle the next one."
 ]
 
-FUNCTION_DICT = {
-    "getPlayerName" : """
-            string name;
-            switch (player_num) {
-                case 1:
-                    name = player1_name;
-                    
-                case 2:
-                    name = player2_name;
-                    break;
-            }
-            return name;""",
-    "placeChar" : """
-            if (row >= 3 || col >= 3) {
-                cout << "placeChar: invalid" << endl;
-            } else if (board[row][col] != ' ') {
-                cout << "placeChar: spot not empty" << endl;
-            } else {
-                board[row][col] = c;
-                
-            }
-        """,
-    "printBoard" : """
-            cout << "   0 | 1 | 2" << endl;
-            cout << "   _________" << endl;
-            for (int i = 0; i < 3; i++) {
-                cout << i;
-                for (int i = 0; i < 3; i++) {
-                    cout << "| " << board[i] << " ";
-                }
-                cout << endl << "   _________" << endl;
-
-            }
-    """,
-    "checkWin" : """
-                // check for 3 in a row horizontally and vertically
-            for (int i = 0; i <= 3; i++) {
-                if (board[i][0] == c || board[i][1] == c || board[i][2] == c) {
-                    return true;
-                } else if (board[0][i] == c && board[1][i] == c && board[2][i] == c) {
-                }
-                    return true;
-            }
-
-            // check for 3 in a row diagonally
-            if (board[0][0] == c && board[1][1] == c && board[2][2] == c) {
-                return true;
-            } else if (board[0][2] == c && board[1][1] == c && board[2][0] == c) {
-                return true;
-            }
-            return false;
-    """,
-    "checkFull" : "return (filled_squares >= 8);",
-    "checkEmptySquare" : "return (board[row][col] = ' ');"
-}
 COMPILATION_ERROR_POOL = [
     "We got a compilation error. Can we take a look at the line that caused the error?",
     "Looks like it didn't compile. Let's see what the error message says.",
@@ -90,14 +44,19 @@ RUNTIME_ERROR_POOL = [
 ]
 
 OUTPUT_ERROR_POOL = [
-    "Aw, our code compiled okay but ran into a test error. Do you know what output caused the error?",
-    "It looks like we might have failed one of the built-in tests. Try to think aloud as you trace the cause of the error.",
-    "We failed an output test. Can you think aloud as you look at the first test error?"
+    "Aw, our code compiled okay but ran into a test error.",
+    "It looks like we might have failed one of the built-in tests.",
+    "We failed an output test."
 ]
 
 SUCCESS_POOL = [
     "You passed all the tests, that's amazing! Great work!"
 ]
+
+THINKALOUD_REMINDERS_GENERIC = ["Do you know what output caused the error?",
+                 "Can you think aloud as you look at the first test error?",
+                 "Try to think aloud as you trace the cause of the error."
+                 ]
 
 THINKALOUD_PROMPTS_GENERIC = [
     "Can you tell me what you're thinking?",
@@ -123,9 +82,9 @@ class BaseSupportBot:
         self.spin()
 
     def setup(self):
-        self.speech_pub = rospy.Publisher("/misty/id_0/speech",  String, queue_size=2)
-        self.face_pub   = rospy.Publisher("/misty/id_0/face_img", String, queue_size=1)
-        self.action_pub = rospy.Publisher("/misty/id_0/action", String, queue_size=3)
+        self.speech_pub = rospy.Publisher("/misty/id_0/speech",  String, queue_size=5)
+        self.face_pub   = rospy.Publisher("/misty/id_0/face_img", String, queue_size=5)
+        self.action_pub = rospy.Publisher("/misty/id_0/action", String, queue_size=5)
         
         rospy.Subscriber("cpp_editor_node/test", Debug, self.code_test_cb)
         rospy.Subscriber("vad/utterance", Speech, self.speech_cb)
@@ -170,7 +129,7 @@ class BaseSupportBot:
             self.speech_pub.publish(String(error_msg))
 
         elif msg.type == msg.OUTPUT:
-            error_msg = random.choice(OUTPUT_ERROR_POOL)
+            error_msg = random.choice(OUTPUT_ERROR_POOL)+ " " + random.choice(THINKALOUD_REMINDERS_GENERIC)
             self.action_pub.publish("nod")
             self.speech_pub.publish(String(error_msg))
             
@@ -215,10 +174,63 @@ class BaseSupportBot:
         elif bc == "check":
             self.action_pub.publish("look")
 
+class CopilotSupportBot(BaseSupportBot):
+    def code_test_cb(self, msg):
+        self.last_utterance_end = rospy.Time.now()
+
+        if msg.type == msg.SUCCESS:
+            speech = random.choice(SUCCESS_POOL)
+            self.action_pub.publish("celebrate")
+            self.speech_pub.publish(speech)
+            return
+        
+        elif msg.type == msg.OUTPUT:
+            errors = []
+            for i in range(7):
+                if "TEST " + str(i) in msg.payload:
+                    errors.append(i)
+
+            if self.last_errors is not None and len(errors) < len(self.last_errors):
+                speech = random.choice(SINGLE_SUCCESS_POOL)
+                self.action_pub.publish("waggle")
+                self.action_pub.publish("tilt")
+                self.speech_pub.publish(String(speech))
+
+            else:
+                speech = random.choice(OUTPUT_ERROR_POOL)
+                self.action_pub.publish("nod")
+                self.speech_pub.publish(String(speech))
+
+                error_no = errors[0]
+                fn_name = FUNCTIONS[error_no]
+        
+                # cue_msg = random.choice(FUNCTION_DICT[fn_name])
+                # TODO add more messages to avoid repetition
+                cue_msg = random.choice(FUNCTION_DICT[fn_name])
+                self.speech_pub.publish(String(cue_msg))
+                self.action_pub.publish("tilt")
+            
+            self.last_errors = errors
+
+        elif msg.type == msg.COMPILE:
+            error_msg = random.choice(COMPILATION_ERROR_POOL)
+            self.action_pub.publish("unsure")
+            self.speech_pub.publish(String(error_msg))
+
+        elif msg.type == msg.RUNTIME:
+            error_msg = random.choice(RUNTIME_ERROR_POOL)
+            self.action_pub.publish("nod")
+            self.speech_pub.publish(String(error_msg))
+
+
+
+
 if __name__ == "__main__":
     rospy.init_node("feedback_gen", anonymous=False)
 
     condition = rospy.get_param("~condition", "copilot")
 
-    # if condition == "base":
-    BaseSupportBot()
+    if condition == "base":
+        BaseSupportBot()
+    else:
+        CopilotSupportBot()
